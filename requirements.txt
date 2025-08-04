@@ -1,0 +1,20 @@
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Scraping dependencies
+playwright==1.40.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Scheduler
+APScheduler==3.10.4
+
+# Additional utilities
+python-multipart==0.0.6
+python-dotenv==1.0.0
+
+# Development dependencies (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1 
