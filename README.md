@@ -1,20 +1,24 @@
-# Financial Data API
+# Financial Data API v2.0
 
-Una API robusta para obtener datos financieros de múltiples fuentes (TradingView, Finviz, Yahoo Finance) con scraping automatizado y persistencia de datos.
+Una API optimizada y simplificada para obtener datos financieros de múltiples fuentes (TradingView, Finviz, Yahoo Finance) con scraping asíncrono, cache inteligente y base de datos.
 
 ## 🚀 Características
 
 - **Múltiples fuentes de datos**: TradingView, Finviz, Yahoo Finance
-- **Scraping automatizado**: Programado cada 50 minutos (configurable)
-- **Persistencia de datos**: Almacenamiento en JSON con backup automático
-- **Logging completo**: Sistema de logs detallado para debugging
-- **API RESTful**: Endpoints para obtener datos y controlar scraping
-- **Manejo robusto de errores**: Recuperación automática y validación de datos
-- **Configuración flexible**: Variables de entorno para personalización
+- **Scraping asíncrono**: Ejecución paralela para mejor rendimiento
+- **Cache inteligente**: Redis con fallback a memoria
+- **Base de datos SQLite**: Almacenamiento estructurado
+- **Rate limiting**: Protección contra spam
+- **Endpoints dinámicos**: Generación automática sin duplicación
+- **Tests automatizados**: Cobertura de funcionalidad crítica
+- **Docker support**: Despliegue simplificado
+- **Logging completo**: Sistema de logs detallado
+- **API RESTful**: Endpoints organizados y documentados
 
 ## 📋 Requisitos
 
-- Python 3.8+
+- Python 3.11+
+- Redis (opcional, con fallback a memoria)
 - Playwright (navegador automatizado)
 - Conexión a internet
 
@@ -54,9 +58,32 @@ cp .env.example .env
 
 ## 🚀 Uso
 
-### Opción 1: API Principal (Recomendado)
+### Opción 1: Docker (Recomendado)
 
-La API principal incluye scraping automático y scheduler:
+```bash
+# Usar docker-compose (incluye Redis)
+docker-compose up -d
+
+# O solo la API
+docker build -t financial-api .
+docker run -p 8000:8000 financial-api
+```
+
+### Opción 2: Local con Redis
+
+```bash
+# Instalar Redis
+# Ubuntu/Debian
+sudo apt-get install redis-server
+
+# macOS
+brew install redis
+
+# Iniciar la API
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Opción 3: Local sin Redis (fallback a memoria)
 
 ```bash
 # Iniciar la API
@@ -67,6 +94,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `GET /` - Información de la API
 - `GET /datos` - Obtener todos los datos financieros
 - `GET /datos/resume` - Obtener resumen de datos
+- `GET /sources` - Información de fuentes disponibles
 - `POST /scrape` - Ejecutar scraping manualmente
 - `GET /health` - Verificar estado de la API
 

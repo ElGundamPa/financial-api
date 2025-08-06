@@ -11,7 +11,14 @@ SCRAPING_INTERVAL_MINUTES = int(os.getenv("SCRAPING_INTERVAL_MINUTES", "50"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "15"))
 BROWSER_TIMEOUT = int(os.getenv("BROWSER_TIMEOUT", "60000"))
 
-# Data Storage
+# Database Configuration
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./financial_data.db")
+
+# Cache Configuration
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))  # 5 minutes
+
+# Data Storage (legacy)
 DATA_FILE = os.getenv("DATA_FILE", "data.json")
 BACKUP_FILE = os.getenv("BACKUP_FILE", "data_backup.json")
 
