@@ -1,35 +1,49 @@
-import requests
-from bs4 import BeautifulSoup
+import asyncio
 import random
 import time
-import asyncio
 from typing import Dict, List, Any
+from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
 from config import USER_AGENTS, FINVIZ_URLS, REQUEST_TIMEOUT
 from logger import logger, log_scraping_start, log_scraping_success, log_scraping_error
 
-async def scrape_finviz_section(session: requests.Session, url: str, key: str) -> List[Dict[str, Any]]:
-    """Scrape a specific section from Finviz with improved selectors and error handling"""
+async def launch_browser():
+    """Launch browser with proper configuration"""
+    playwright = await async_playwright().start()
+    browser = await playwright.chromium.launch(
+        headless=True,
+        args=[
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    )
+    return browser
+
+async def scrape_finviz_section(page, url: str, key: str) -> List[Dict[str, Any]]:
+    """Scrape a specific section from Finviz using Playwright"""
     try:
-        headers = {
-            "User-Agent": random.choice(USER_AGENTS),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "DNT": "1"
-        }
+        logger.debug(f"🌐 Navegando a {url}")
         
-        logger.debug(f"🌐 Solicitando {url}")
-        r = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-        r.raise_for_status()
+        # Set user agent
+        await page.set_user_agent(random.choice(USER_AGENTS))
         
-        soup = BeautifulSoup(r.text, "lxml")
+        # Navigate to page
+        await page.goto(url, wait_until="networkidle", timeout=30000)
+        await asyncio.sleep(3)  # Wait for content to load
+        
+        # Take screenshot for debugging
+        screenshot_path = f"screenshots/finviz_{key}_{int(time.time())}.png"
+        await page.screenshot(path=screenshot_path)
+        logger.debug(f"📸 Screenshot guardado: {screenshot_path}")
+        
+        # Get page content
+        content = await page.content()
+        soup = BeautifulSoup(content, "lxml")
         section = []
         
         # Selectors mejorados y específicos para Finviz
@@ -72,7 +86,7 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
         rows = []
         selector_list = selectors.get(key, ["table tr"])
         
-        # Intentar diferentes selectores con mejor lógica
+        # Intentar diferentes selectors con mejor lógica
         for selector in selector_list:
             try:
                 found_rows = soup.select(selector)
@@ -156,38 +170,28 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
         logger.debug(f"✅ Sección {key} procesada: {len(section)} elementos")
         return section
         
-    except requests.exceptions.Timeout:
-        logger.error(f"⏰ Timeout en {key}")
-        return []
-    except requests.exceptions.RequestException as e:
-        logger.error(f"🌐 Error de red en {key}: {e}")
-        return []
     except Exception as e:
-        logger.error(f"❌ Error inesperado en {key}: {e}")
+        logger.error(f"❌ Error scraping {key}: {e}")
         return []
 
 async def scrape_finviz():
-    """Main Finviz scraping function with improved error handling"""
+    """Main Finviz scraping function using Playwright"""
     log_scraping_start("Finviz")
     
     data = {}
-    session = requests.Session()
     
     try:
-        # Configure session with better headers
-        session.headers.update({
-            "User-Agent": random.choice(USER_AGENTS),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
-        })
+        # Launch browser
+        browser = await launch_browser()
+        page = await browser.new_page()
+        
+        # Set viewport for better rendering
+        await page.set_viewport_size({"width": 1920, "height": 1080})
         
         for key, url in FINVIZ_URLS.items():
             try:
                 logger.info(f"🔄 Procesando sección: {key}")
-                section_data = await scrape_finviz_section(session, url, key)
+                section_data = await scrape_finviz_section(page, url, key)
                 data[key] = section_data
                 
                 # Add delay between requests to avoid rate limiting
@@ -201,7 +205,8 @@ async def scrape_finviz():
         log_scraping_error("Finviz", e)
         return {}
     finally:
-        session.close()
+        if 'browser' in locals():
+            await browser.close()
     
     # Log success
     total_items = sum(len(section) for section in data.values())

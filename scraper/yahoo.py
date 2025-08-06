@@ -119,7 +119,7 @@ def extract_yahoo_row_data(row, key: str) -> Dict[str, Any]:
         elif key == "materias_primas":
             return extract_commodities_data(cols)
         elif key == "indices":
-            return extract_indices_data(cols)
+            return await extract_indices_data(soup)
         else:
             return extract_generic_data(cols)
             
@@ -219,9 +219,85 @@ def extract_commodities_data(cols) -> Dict[str, Any]:
     """Extract data from commodities table"""
     return extract_forex_data(cols)  # Misma estructura
 
-def extract_indices_data(cols) -> Dict[str, Any]:
-    """Extract data from indices table"""
-    return extract_forex_data(cols)  # Misma estructura
+async def extract_indices_data(soup: BeautifulSoup) -> List[Dict[str, str]]:
+    """Extract indices data from Yahoo Finance"""
+    try:
+        indices_data = []
+        
+        # Buscar elementos de índices en la página
+        selectors = [
+            "div[data-test='quote-header-info']",
+            "div[class*='quote-header']",
+            "div[class*='index']",
+            "div[class*='quote']",
+            "table tbody tr",
+            "div[class*='row']"
+        ]
+        
+        for selector in selectors:
+            elements = soup.select(selector)
+            if elements:
+                logger.debug(f"✅ Selector encontrado para índices: {selector} - {len(elements)} elementos")
+                break
+        
+        # Si no encontramos elementos específicos, buscar en el contenido general
+        if not elements:
+            # Buscar cualquier elemento que contenga datos de índices
+            all_divs = soup.find_all("div")
+            for div in all_divs:
+                text = div.get_text(strip=True)
+                if any(index_name in text.upper() for index_name in 
+                      ['S&P 500', 'NASDAQ', 'DOW JONES', 'RUSSELL', 'VIX', '^GSPC', '^IXIC', '^DJI']):
+                    elements = [div]
+                    break
+        
+        if not elements:
+            logger.warning("⚠️ No se encontraron elementos de índices")
+            return []
+        
+        # Procesar elementos encontrados
+        for element in elements[:10]:  # Máximo 10 índices
+            try:
+                text = element.get_text(strip=True)
+                
+                # Buscar patrones de índices conocidos
+                if any(index_name in text.upper() for index_name in 
+                      ['S&P 500', 'NASDAQ', 'DOW JONES', 'RUSSELL', 'VIX']):
+                    
+                    # Extraer datos básicos
+                    lines = text.split('\n')
+                    nombre = ""
+                    precio = ""
+                    cambio = ""
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if any(index_name in line.upper() for index_name in 
+                              ['S&P 500', 'NASDAQ', 'DOW JONES', 'RUSSELL', 'VIX']):
+                            nombre = line
+                        elif any(char.isdigit() for char in line) and any(char in line for char in ['.', ',']):
+                            if not precio:
+                                precio = line
+                            elif not cambio and any(char in line for char in ['+', '-', '%']):
+                                cambio = line
+                    
+                    if nombre:
+                        indices_data.append({
+                            "indice": nombre,
+                            "precio": precio or "N/A",
+                            "cambio": cambio or "N/A"
+                        })
+                        logger.debug(f"📊 Índice encontrado: {nombre} - {precio} - {cambio}")
+                
+            except Exception as e:
+                logger.debug(f"⚠️ Error procesando elemento de índice: {e}")
+                continue
+        
+        return indices_data
+        
+    except Exception as e:
+        logger.error(f"❌ Error extrayendo datos de índices: {e}")
+        return []
 
 def extract_generic_data(cols) -> Dict[str, Any]:
     """Extract generic data from any table"""

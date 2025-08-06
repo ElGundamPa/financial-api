@@ -30,9 +30,25 @@ async def scrape_tradingview_section(page, url: str, section_name: str) -> List[
         content = await page.content()
         soup = BeautifulSoup(content, "lxml")
         
-        # Selectors mejorados para TradingView
-        if section_name == "indices":
-            # Selectors específicos para índices
+        # Selectors específicos basados en la investigación real
+        if section_name == "forex":
+            # Para forex: usar tbody tr que funciona perfectamente
+            selectors = [
+                "tbody tr",
+                "table tbody tr",
+                "tr[class*='row']",
+                "table tr"
+            ]
+        elif section_name == "acciones":
+            # Para acciones: usar la segunda tabla que contiene los datos
+            selectors = [
+                "table:nth-of-type(2) tbody tr",
+                "table:nth-of-type(2) tr",
+                "tbody tr",
+                "table tbody tr"
+            ]
+        elif section_name == "indices":
+            # Para índices: mantener los selectors que funcionan
             selectors = [
                 "table tbody tr",
                 "div[class*='row']",
@@ -41,37 +57,8 @@ async def scrape_tradingview_section(page, url: str, section_name: str) -> List[
                 "tbody tr",
                 "tr"
             ]
-        elif section_name == "forex":
-            # Selectors específicos para forex
-            selectors = [
-                "table tbody tr",
-                "div[class*='row']",
-                "tr[class*='row']",
-                "table tr",
-                "tbody tr",
-                "tr",
-                ".tv-data-table__row",
-                ".tv-screener__content-row",
-                "[data-role='symbol']",
-                "div[class*='symbol']"
-            ]
-        elif section_name == "acciones":
-            # Selectors específicos para acciones
-            selectors = [
-                "table tbody tr",
-                "div[class*='row']",
-                "tr[class*='row']",
-                "table tr",
-                "tbody tr",
-                "tr",
-                ".tv-data-table__row",
-                ".tv-screener__content-row",
-                "[data-role='symbol']",
-                "div[class*='symbol']",
-                "tr[class*='table-light']"
-            ]
         else:
-            # Selectors para otras secciones
+            # Para otras secciones
             selectors = [
                 "table.tv-data-table > tbody > tr",
                 "table[class*='table'] > tbody > tr",
@@ -107,14 +94,14 @@ async def scrape_tradingview_section(page, url: str, section_name: str) -> List[
             logger.warning(f"⚠️ No se encontraron filas en {section_name}")
             return []
         
-        # Process all rows (no limit for indices, up to 100 for others)
-        max_rows = 1000 if section_name == "indices" else 100
+        # Process all rows (no limit for indices, up to 200 for others)
+        max_rows = 1000 if section_name == "indices" else 200
         data_rows = rows[:max_rows]
         
         section = []
         for i, row in enumerate(data_rows):
             try:
-                row_data = extract_row_data(row, section_name)
+                row_data = extract_row_data_improved(row, section_name)
                 if row_data:
                     section.append(row_data)
                     logger.debug(f"📊 {section_name}: {row_data.get('nombre', 'N/A')} - {row_data.get('precio', 'N/A')}")
@@ -176,81 +163,88 @@ async def handle_load_more_button(page, section_name: str):
     except Exception as e:
         logger.debug(f"⚠️ Error manejando botón 'Cargar más' para {section_name}: {e}")
 
-def extract_row_data(row, section_name: str) -> Dict[str, str]:
+def extract_row_data_improved(row, section_name: str) -> Dict[str, str]:
     """
-    Extract data from a table row
+    Extract data from a table row with improved logic based on investigation
     """
     try:
-        # Try different cell extraction strategies
+        # Skip header rows
+        row_text = row.get_text(strip=True)
+        if any(header_word in row_text.lower() for header_word in 
+               ['símbolo', 'symbol', 'precio', 'price', 'cambio', 'change', 'capitalización']):
+            return None
+        
+        # Try to extract from table cells first
         cells = row.find_all("td")
-        
         if len(cells) >= 3:
-            # Standard table format
-            nombre = cells[0].get_text(strip=True)
-            precio = cells[1].get_text(strip=True)
-            cambio = cells[2].get_text(strip=True) if len(cells) > 2 else "N/A"
-            maximo = cells[3].get_text(strip=True) if len(cells) > 3 else "N/A"
-            minimo = cells[4].get_text(strip=True) if len(cells) > 4 else "N/A"
-            calificacion = cells[5].get_text(strip=True) if len(cells) > 5 else "N/A"
-            
-        elif len(cells) == 2:
-            # Two-column format
-            nombre = cells[0].get_text(strip=True)
-            precio = cells[1].get_text(strip=True)
-            cambio = "N/A"
-            maximo = "N/A"
-            minimo = "N/A"
-            calificacion = "N/A"
-            
-        else:
-            # Try to extract from div elements
-            divs = row.find_all("div")
-            if len(divs) >= 2:
-                nombre = divs[0].get_text(strip=True)
-                precio = divs[1].get_text(strip=True)
-                cambio = divs[2].get_text(strip=True) if len(divs) > 2 else "N/A"
-                maximo = divs[3].get_text(strip=True) if len(divs) > 3 else "N/A"
-                minimo = divs[4].get_text(strip=True) if len(divs) > 4 else "N/A"
-                calificacion = divs[5].get_text(strip=True) if len(divs) > 5 else "N/A"
+            if section_name == "forex":
+                # Forex: Símbolo, Precio, Cambio %, Cambio, Bid, Ask, Máximo, Mínimo, Calificación
+                nombre = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                precio = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                cambio_porcentaje = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                cambio = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                maximo = cells[6].get_text(strip=True) if len(cells) > 6 else ""
+                minimo = cells[7].get_text(strip=True) if len(cells) > 7 else ""
+                calificacion = cells[8].get_text(strip=True) if len(cells) > 8 else ""
+                
+                return {
+                    "nombre": nombre,
+                    "precio": precio,
+                    "cambio": cambio_porcentaje,
+                    "cambio_valor": cambio,
+                    "maximo": maximo,
+                    "minimo": minimo,
+                    "calificacion": calificacion
+                }
+                
+            elif section_name == "acciones":
+                # Acciones: Símbolo, Capitalización, Precio, Cambio %, Volumen, etc.
+                nombre = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                capitalizacion = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                precio = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                cambio = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                volumen = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                
+                return {
+                    "nombre": nombre,
+                    "capitalizacion": capitalizacion,
+                    "precio": precio,
+                    "cambio": cambio,
+                    "volumen": volumen
+                }
+                
             else:
-                # Fallback: extract all text
-                text = row.get_text(strip=True)
-                parts = text.split()
-                if len(parts) >= 2:
-                    nombre = parts[0]
-                    precio = parts[1]
-                    cambio = parts[2] if len(parts) > 2 else "N/A"
-                    maximo = parts[3] if len(parts) > 3 else "N/A"
-                    minimo = parts[4] if len(parts) > 4 else "N/A"
-                    calificacion = parts[5] if len(parts) > 5 else "N/A"
-                else:
-                    return None
+                # Default extraction for other sections
+                nombre = cells[0].get_text(strip=True) if len(cells) > 0 else ""
+                precio = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                cambio = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                maximo = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                minimo = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                calificacion = cells[5].get_text(strip=True) if len(cells) > 5 else ""
+                
+                return {
+                    "nombre": nombre,
+                    "precio": precio,
+                    "cambio": cambio,
+                    "maximo": maximo,
+                    "minimo": minimo,
+                    "calificacion": calificacion
+                }
         
-        # Validate and clean data
-        if nombre and precio and len(nombre) > 0:
-            # Clean up the data
-            nombre = nombre.replace('\n', ' ').replace('\t', ' ').strip()
-            precio = precio.replace('\n', ' ').replace('\t', ' ').strip()
-            cambio = cambio.replace('\n', ' ').replace('\t', ' ').strip()
-            maximo = maximo.replace('\n', ' ').replace('\t', ' ').strip()
-            minimo = minimo.replace('\n', ' ').replace('\t', ' ').strip()
-            calificacion = calificacion.replace('\n', ' ').replace('\t', ' ').strip()
-            
-            # Limit string lengths
-            nombre = nombre[:50] if len(nombre) > 50 else nombre
-            precio = precio[:20] if len(precio) > 20 else precio
-            cambio = cambio[:20] if len(cambio) > 20 else cambio
-            maximo = maximo[:20] if len(maximo) > 20 else maximo
-            minimo = minimo[:20] if len(minimo) > 20 else minimo
-            calificacion = calificacion[:20] if len(calificacion) > 20 else calificacion
+        # Fallback: try to extract from div elements
+        divs = row.find_all("div")
+        if len(divs) >= 2:
+            nombre = divs[0].get_text(strip=True)
+            precio = divs[1].get_text(strip=True)
+            cambio = divs[2].get_text(strip=True) if len(divs) > 2 else "N/A"
             
             return {
                 "nombre": nombre,
                 "precio": precio,
                 "cambio": cambio,
-                "maximo": maximo,
-                "minimo": minimo,
-                "calificacion": calificacion
+                "maximo": "N/A",
+                "minimo": "N/A",
+                "calificacion": "N/A"
             }
         
         return None
