@@ -198,6 +198,27 @@ def extract_row_data_improved(row, section_name: str) -> Dict[str, str]:
                     "calificacion": "N/A"
                 }
         
+        elif section_name == "cripto":
+            # Criptomonedas: nombre, precio, cambio_porcentaje, cambio, volumen, capitalizacion
+            if len(cells) >= 6:
+                return {
+                    "nombre": cells[0].get_text(strip=True),
+                    "precio": cells[1].get_text(strip=True),
+                    "cambio_porcentaje": cells[2].get_text(strip=True),
+                    "cambio": cells[3].get_text(strip=True),
+                    "volumen": cells[4].get_text(strip=True),
+                    "capitalizacion": cells[5].get_text(strip=True)
+                }
+            elif len(cells) >= 4:
+                return {
+                    "nombre": cells[0].get_text(strip=True),
+                    "precio": cells[1].get_text(strip=True),
+                    "cambio_porcentaje": cells[2].get_text(strip=True),
+                    "cambio": cells[3].get_text(strip=True),
+                    "volumen": "N/A",
+                    "capitalizacion": "N/A"
+                }
+        
         else:
             # Generic extraction for other sections
             data = {}
@@ -278,6 +299,8 @@ def scrape_tradingview_section_sync(session: requests.Session, url: str, section
             selectors = ["table:nth-of-type(2) tbody tr", "table:nth-of-type(2) tr", "tbody tr", "table tbody tr"]
         elif section_name == "indices":
             selectors = ["table tbody tr", "div[class*='row']", "tr[class*='row']", "table tr", "tbody tr", "tr"]
+        elif section_name == "cripto":
+            selectors = ["div[class*='tv-data-table'] tbody tr", "div[class*='table'] tbody tr", "div[class*='row']", "table tbody tr", "tbody tr", "table tr"]
         else:
             selectors = ["table tbody tr", "div[class*='row']", "tr[class*='row']", "tbody tr", "table tr"]
         

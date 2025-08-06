@@ -21,7 +21,10 @@ async def scrape_finviz_section(session: requests.Session, url: str, section_nam
             "Upgrade-Insecure-Requests": "1",
             "Cache-Control": "no-cache",
             "Pragma": "no-cache",
-            "DNT": "1"
+            "DNT": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none"
         }
         
         response = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
@@ -29,15 +32,19 @@ async def scrape_finviz_section(session: requests.Session, url: str, section_nam
         
         soup = BeautifulSoup(response.text, "lxml")
         
-        # Selectors específicos para Finviz
+        # Selectors específicos para Finviz (corregidos basados en investigación)
         selectors = [
             "table.screener_table tbody tr",
+            "table[class*='styled-table-new'] tbody tr",
             "table[class*='screener'] tbody tr",
             "table tbody tr",
             "tr[class*='table-light']",
             "tr[class*='table-dark']",
             "tbody tr",
-            "table tr"
+            "table tr",
+            "tr[class*='row']",
+            "div[class*='table'] tbody tr",
+            "table tr:not([class*='header'])"
         ]
         
         rows = []
@@ -62,7 +69,7 @@ async def scrape_finviz_section(session: requests.Session, url: str, section_nam
             try:
                 # Skip rows that are likely navigation or headers
                 row_text = row.get_text(strip=True).lower()
-                if any(nav_word in row_text for nav_word in ['home', 'screener', 'portfolio', 'insider', 'calendar']):
+                if any(nav_word in row_text for nav_word in ['home', 'screener', 'portfolio', 'insider', 'calendar', 'symbol', 'name', 'price', 'no.', 'ticker', 'company']):
                     continue
                 
                 # Check if row has enough data
@@ -102,7 +109,7 @@ async def scrape_finviz_section(session: requests.Session, url: str, section_nam
     except Exception as e:
         logger.error(f"❌ Error inesperado en {section_name}: {e}")
         return []
-
+ 
 def extract_finviz_row_data(row, section_name: str) -> Dict[str, str]:
     """Extract data from a Finviz table row"""
     try:
@@ -174,7 +181,7 @@ def extract_finviz_row_data(row, section_name: str) -> Dict[str, str]:
     except Exception as e:
         logger.debug(f"⚠️ Error extrayendo datos de fila: {e}")
         return None
-
+ 
 def scrape_finviz() -> Dict[str, List[Dict[str, str]]]:
     """Main Finviz scraping function (synchronous version)"""
     log_scraping_start("Finviz")
@@ -214,7 +221,7 @@ def scrape_finviz() -> Dict[str, List[Dict[str, str]]]:
     log_scraping_success("Finviz", total_items)
     
     return data
-
+ 
 def scrape_finviz_section_sync(session: requests.Session, url: str, section_name: str) -> List[Dict[str, Any]]:
     """Synchronous version of scrape_finviz_section"""
     try:
@@ -228,7 +235,10 @@ def scrape_finviz_section_sync(session: requests.Session, url: str, section_name
             "Upgrade-Insecure-Requests": "1",
             "Cache-Control": "no-cache",
             "Pragma": "no-cache",
-            "DNT": "1"
+            "DNT": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none"
         }
         
         response = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
@@ -236,15 +246,19 @@ def scrape_finviz_section_sync(session: requests.Session, url: str, section_name
         
         soup = BeautifulSoup(response.text, "lxml")
         
-        # Selectors específicos para Finviz
+        # Selectors específicos para Finviz (corregidos basados en investigación)
         selectors = [
             "table.screener_table tbody tr",
+            "table[class*='styled-table-new'] tbody tr",
             "table[class*='screener'] tbody tr",
             "table tbody tr",
             "tr[class*='table-light']",
             "tr[class*='table-dark']",
             "tbody tr",
-            "table tr"
+            "table tr",
+            "tr[class*='row']",
+            "div[class*='table'] tbody tr",
+            "table tr:not([class*='header'])"
         ]
         
         rows = []
@@ -269,7 +283,7 @@ def scrape_finviz_section_sync(session: requests.Session, url: str, section_name
             try:
                 # Skip rows that are likely navigation or headers
                 row_text = row.get_text(strip=True).lower()
-                if any(nav_word in row_text for nav_word in ['home', 'screener', 'portfolio', 'insider', 'calendar']):
+                if any(nav_word in row_text for nav_word in ['home', 'screener', 'portfolio', 'insider', 'calendar', 'symbol', 'name', 'price', 'no.', 'ticker', 'company']):
                     continue
                 
                 # Check if row has enough data
@@ -309,7 +323,7 @@ def scrape_finviz_section_sync(session: requests.Session, url: str, section_name
     except Exception as e:
         logger.error(f"❌ Error inesperado en {section_name}: {e}")
         return []
-
+ 
 async def scrape_finviz_async():
     """Async wrapper for Finviz scraping"""
     return scrape_finviz()

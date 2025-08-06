@@ -1,0 +1,315 @@
+{
+  "tradingview": {
+    "indices": {
+      "url": "https://es.tradingview.com/markets/indices/quotes-all/",
+      "source": "TradingView",
+      "section": "indices",
+      "status_code": 200,
+      "content_length": 323515,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 81,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Símbolo",
+        "col_2": "Precio",
+        "col_3": "Cambio %",
+        "col_4": "Cambio",
+        "col_5": "Máximo",
+        "col_6": "Mínimo"
+      }
+    },
+    "acciones": {
+      "url": "https://es.tradingview.com/markets/stocks-usa/market-movers-large-cap/",
+      "source": "TradingView",
+      "section": "acciones",
+      "status_code": 200,
+      "content_length": 457063,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 101,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Símbolo",
+        "col_2": "Capitalización de mercado",
+        "col_3": "Precio",
+        "col_4": "Cambio %",
+        "col_5": "Volumen",
+        "col_6": "Volumen relativo"
+      }
+    },
+    "cripto": {
+      "url": "https://es.tradingview.com/markets/cryptocurrencies/",
+      "source": "TradingView",
+      "section": "cripto",
+      "status_code": 200,
+      "content_length": 378723,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 0,
+      "rows_found": 0,
+      "data_extracted": 0,
+      "error": null,
+      "suggestions": [
+        "No se encontraron tablas - revisar selectors",
+        "No se encontraron filas - la página puede estar vacía",
+        "No se pudieron extraer datos - revisar estructura HTML"
+      ]
+    },
+    "forex": {
+      "url": "https://es.tradingview.com/markets/currencies/rates-all/",
+      "source": "TradingView",
+      "section": "forex",
+      "status_code": 200,
+      "content_length": 376949,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 101,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Símbolo",
+        "col_2": "Precio",
+        "col_3": "Cambio %",
+        "col_4": "Cambio",
+        "col_5": "Bid",
+        "col_6": "Ask"
+      }
+    }
+  },
+  "finviz": {
+    "forex": {
+      "url": "https://finviz.com/forex.ashx",
+      "source": "Finviz",
+      "section": "forex",
+      "status_code": 200,
+      "content_length": 17763,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 0,
+      "rows_found": 0,
+      "data_extracted": 0,
+      "error": null,
+      "suggestions": [
+        "Página puede estar redirigiendo - verificar URL",
+        "No se encontraron tablas - revisar selectors",
+        "No se encontraron filas - la página puede estar vacía",
+        "No se pudieron extraer datos - revisar estructura HTML"
+      ]
+    },
+    "acciones": {
+      "url": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=cap_large",
+      "source": "Finviz",
+      "section": "acciones",
+      "status_code": 200,
+      "content_length": 23364,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 0,
+      "rows_found": 0,
+      "data_extracted": 0,
+      "error": null,
+      "suggestions": [
+        "Página puede estar redirigiendo - verificar URL",
+        "No se encontraron tablas - revisar selectors",
+        "No se encontraron filas - la página puede estar vacía",
+        "No se pudieron extraer datos - revisar estructura HTML"
+      ]
+    },
+    "indices": {
+      "url": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=idx_sp500",
+      "source": "Finviz",
+      "section": "indices",
+      "status_code": 200,
+      "content_length": 22745,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 0,
+      "rows_found": 0,
+      "data_extracted": 0,
+      "error": null,
+      "suggestions": [
+        "Página puede estar redirigiendo - verificar URL",
+        "No se encontraron tablas - revisar selectors",
+        "No se encontraron filas - la página puede estar vacía",
+        "No se pudieron extraer datos - revisar estructura HTML"
+      ]
+    }
+  },
+  "yahoo": {
+    "forex": {
+      "url": "https://finance.yahoo.com/currencies",
+      "source": "Yahoo",
+      "section": "forex",
+      "status_code": 200,
+      "content_length": 1946540,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 25,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Symbol",
+        "col_2": "Name",
+        "col_3": "",
+        "col_4": "Price",
+        "col_5": "Change",
+        "col_6": "Change %"
+      }
+    },
+    "gainers": {
+      "url": "https://finance.yahoo.com/markets/stocks/gainers/",
+      "source": "Yahoo",
+      "section": "gainers",
+      "status_code": 200,
+      "content_length": 2038217,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 27,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Symbol",
+        "col_2": "Name",
+        "col_3": "",
+        "col_4": "Price",
+        "col_5": "Change",
+        "col_6": "Change %"
+      }
+    },
+    "losers": {
+      "url": "https://finance.yahoo.com/markets/stocks/losers/",
+      "source": "Yahoo",
+      "section": "losers",
+      "status_code": 200,
+      "content_length": 2002231,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 27,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Symbol",
+        "col_2": "Name",
+        "col_3": "",
+        "col_4": "Price",
+        "col_5": "Change",
+        "col_6": "Change %"
+      }
+    },
+    "most_active_stocks": {
+      "url": "https://finance.yahoo.com/markets/stocks/most-active/",
+      "source": "Yahoo",
+      "section": "most_active_stocks",
+      "status_code": 200,
+      "content_length": 2001653,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 27,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Symbol",
+        "col_2": "Name",
+        "col_3": "",
+        "col_4": "Price",
+        "col_5": "Change",
+        "col_6": "Change %"
+      }
+    },
+    "most_active_etfs": {
+      "url": "https://finance.yahoo.com/markets/etfs/most-active/",
+      "source": "Yahoo",
+      "section": "most_active_etfs",
+      "status_code": 200,
+      "content_length": 2009934,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 27,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Symbol",
+        "col_2": "Name",
+        "col_3": "",
+        "col_4": "Price",
+        "col_5": "Change",
+        "col_6": "Change %"
+      }
+    },
+    "undervalued_growth": {
+      "url": "https://finance.yahoo.com/screener/predefined/undervalued_stocks",
+      "source": "Yahoo",
+      "section": "undervalued_growth",
+      "status_code": 404,
+      "content_length": 711,
+      "content_type": "text/html",
+      "is_html": false,
+      "tables_found": 0,
+      "rows_found": 0,
+      "data_extracted": 0,
+      "error": "HTTP 404",
+      "suggestions": [
+        "URL puede estar mal o requerir autenticación"
+      ]
+    },
+    "materias_primas": {
+      "url": "https://finance.yahoo.com/commodities",
+      "source": "Yahoo",
+      "section": "materias_primas",
+      "status_code": 200,
+      "content_length": 2005169,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 1,
+      "rows_found": 39,
+      "data_extracted": 10,
+      "error": null,
+      "suggestions": [],
+      "sample_data": {
+        "col_1": "Symbol",
+        "col_2": "Name",
+        "col_3": "",
+        "col_4": "Price",
+        "col_5": "Market Time",
+        "col_6": "Change"
+      }
+    },
+    "indices": {
+      "url": "https://finance.yahoo.com/quote/%5EGSPC",
+      "source": "Yahoo",
+      "section": "indices",
+      "status_code": 200,
+      "content_length": 2108170,
+      "content_type": "text/html; charset=utf-8",
+      "is_html": true,
+      "tables_found": 0,
+      "rows_found": 0,
+      "data_extracted": 0,
+      "error": null,
+      "suggestions": [
+        "No se encontraron tablas - revisar selectors",
+        "No se encontraron filas - la página puede estar vacía",
+        "No se pudieron extraer datos - revisar estructura HTML"
+      ]
+    }
+  }
+}
