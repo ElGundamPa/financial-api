@@ -127,11 +127,34 @@ async def root():
     log_api_request("GET", "/")
     return {
         "message": "Financial Data API",
-        "version": "1.0.0",
+        "version": "1.1.0",
+        "description": "API organizada para datos financieros de múltiples fuentes",
         "endpoints": {
-            "/datos": "Obtener todos los datos financieros",
-            "/datos/resume": "Obtener resumen de datos",
-            "/scrape": "Ejecutar scraping manualmente"
+            "general": {
+                "/datos": "Obtener todos los datos financieros",
+                "/datos/resume": "Obtener resumen de datos",
+                "/health": "Verificar estado de la API",
+                "/scrape": "Ejecutar scraping manualmente"
+            },
+            "por_tipo": {
+                "/datos/indices": "Índices bursátiles de todas las fuentes",
+                "/datos/acciones": "Acciones de todas las fuentes",
+                "/datos/cripto": "Criptomonedas",
+                "/datos/forex": "Forex de todas las fuentes",
+                "/datos/etfs": "ETFs",
+                "/datos/materias-primas": "Materias primas"
+            },
+            "por_fuente": {
+                "/datos/tradingview": "Todos los datos de TradingView",
+                "/datos/finviz": "Todos los datos de Finviz",
+                "/datos/yahoo": "Todos los datos de Yahoo Finance"
+            },
+            "yahoo_especifico": {
+                "/datos/yahoo/gainers": "Acciones con mayor ganancia",
+                "/datos/yahoo/losers": "Acciones con mayor pérdida",
+                "/datos/yahoo/most-active": "Acciones y ETFs más activos",
+                "/datos/yahoo/undervalued": "Acciones de crecimiento infravaloradas"
+            }
         }
     }
 
@@ -183,3 +206,229 @@ async def health_check():
     except Exception as e:
         logger.error(f"❌ Error en health check: {e}")
         return {"status": "unhealthy", "error": str(e)}
+
+# ===== NUEVOS ENDPOINTS ORGANIZADOS =====
+
+# === ENDPOINTS POR TIPO DE DATO ===
+
+@app.get("/datos/indices")
+async def get_indices():
+    """Get all indices data from all sources"""
+    log_api_request("GET", "/datos/indices")
+    try:
+        data = get_data()
+        indices_data = {
+            "tradingview": data.get("tradingview", {}).get("indices", []),
+            "finviz": data.get("finviz", {}).get("indices", []),
+            "yahoo": data.get("yahoo", {}).get("indices", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=indices_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo índices: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/acciones")
+async def get_acciones():
+    """Get all stocks data from all sources"""
+    log_api_request("GET", "/datos/acciones")
+    try:
+        data = get_data()
+        acciones_data = {
+            "tradingview": data.get("tradingview", {}).get("acciones", []),
+            "finviz": data.get("finviz", {}).get("acciones", []),
+            "yahoo": {
+                "gainers": data.get("yahoo", {}).get("gainers", []),
+                "losers": data.get("yahoo", {}).get("losers", []),
+                "most_active": data.get("yahoo", {}).get("most_active_stocks", [])
+            },
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=acciones_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo acciones: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/cripto")
+async def get_cripto():
+    """Get all cryptocurrency data"""
+    log_api_request("GET", "/datos/cripto")
+    try:
+        data = get_data()
+        cripto_data = {
+            "tradingview": data.get("tradingview", {}).get("cripto", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=cripto_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo cripto: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/forex")
+async def get_forex():
+    """Get all forex data from all sources"""
+    log_api_request("GET", "/datos/forex")
+    try:
+        data = get_data()
+        forex_data = {
+            "tradingview": data.get("tradingview", {}).get("forex", []),
+            "finviz": data.get("finviz", {}).get("forex", []),
+            "yahoo": data.get("yahoo", {}).get("forex", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=forex_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo forex: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/etfs")
+async def get_etfs():
+    """Get all ETFs data"""
+    log_api_request("GET", "/datos/etfs")
+    try:
+        data = get_data()
+        etfs_data = {
+            "yahoo": data.get("yahoo", {}).get("most_active_etfs", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=etfs_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo ETFs: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/materias-primas")
+async def get_materias_primas():
+    """Get all commodities data"""
+    log_api_request("GET", "/datos/materias-primas")
+    try:
+        data = get_data()
+        commodities_data = {
+            "yahoo": data.get("yahoo", {}).get("materias_primas", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=commodities_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo materias primas: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+# === ENDPOINTS POR FUENTE ===
+
+@app.get("/datos/tradingview")
+async def get_tradingview_data():
+    """Get all TradingView data"""
+    log_api_request("GET", "/datos/tradingview")
+    try:
+        data = get_data()
+        tv_data = {
+            "indices": data.get("tradingview", {}).get("indices", []),
+            "acciones": data.get("tradingview", {}).get("acciones", []),
+            "cripto": data.get("tradingview", {}).get("cripto", []),
+            "forex": data.get("tradingview", {}).get("forex", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=tv_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo datos de TradingView: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/finviz")
+async def get_finviz_data():
+    """Get all Finviz data"""
+    log_api_request("GET", "/datos/finviz")
+    try:
+        data = get_data()
+        fv_data = {
+            "forex": data.get("finviz", {}).get("forex", []),
+            "acciones": data.get("finviz", {}).get("acciones", []),
+            "indices": data.get("finviz", {}).get("indices", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=fv_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo datos de Finviz: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo")
+async def get_yahoo_data():
+    """Get all Yahoo Finance data"""
+    log_api_request("GET", "/datos/yahoo")
+    try:
+        data = get_data()
+        yh_data = {
+            "forex": data.get("yahoo", {}).get("forex", []),
+            "gainers": data.get("yahoo", {}).get("gainers", []),
+            "losers": data.get("yahoo", {}).get("losers", []),
+            "most_active_stocks": data.get("yahoo", {}).get("most_active_stocks", []),
+            "most_active_etfs": data.get("yahoo", {}).get("most_active_etfs", []),
+            "undervalued_growth": data.get("yahoo", {}).get("undervalued_growth", []),
+            "materias_primas": data.get("yahoo", {}).get("materias_primas", []),
+            "indices": data.get("yahoo", {}).get("indices", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=yh_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo datos de Yahoo: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+# === ENDPOINTS ESPECÍFICOS DE YAHOO ===
+
+@app.get("/datos/yahoo/gainers")
+async def get_yahoo_gainers():
+    """Get Yahoo Finance gainers data"""
+    log_api_request("GET", "/datos/yahoo/gainers")
+    try:
+        data = get_data()
+        gainers_data = {
+            "gainers": data.get("yahoo", {}).get("gainers", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=gainers_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo gainers: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/losers")
+async def get_yahoo_losers():
+    """Get Yahoo Finance losers data"""
+    log_api_request("GET", "/datos/yahoo/losers")
+    try:
+        data = get_data()
+        losers_data = {
+            "losers": data.get("yahoo", {}).get("losers", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=losers_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo losers: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/most-active")
+async def get_yahoo_most_active():
+    """Get Yahoo Finance most active data"""
+    log_api_request("GET", "/datos/yahoo/most-active")
+    try:
+        data = get_data()
+        most_active_data = {
+            "stocks": data.get("yahoo", {}).get("most_active_stocks", []),
+            "etfs": data.get("yahoo", {}).get("most_active_etfs", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=most_active_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo most active: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/undervalued")
+async def get_yahoo_undervalued():
+    """Get Yahoo Finance undervalued growth stocks data"""
+    log_api_request("GET", "/datos/yahoo/undervalued")
+    try:
+        data = get_data()
+        undervalued_data = {
+            "undervalued_growth": data.get("yahoo", {}).get("undervalued_growth", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=undervalued_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo undervalued: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
