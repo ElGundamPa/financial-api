@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import random
 import asyncio
+import time
 from typing import Dict, List, Any
 from config import USER_AGENTS, YAHOO_URLS, REQUEST_TIMEOUT
 from logger import logger, log_scraping_start, log_scraping_success, log_scraping_error
@@ -37,18 +38,18 @@ async def scrape_yahoo_paginated_section(session: requests.Session, base_url: st
                 
                 soup = BeautifulSoup(r.text, "lxml")
                 
-                        # Selectors específicos para Yahoo Finance (mejorados)
-        selectors = [
-            "table tbody tr",
-            "div[data-test='fin-table'] tbody tr",
-            "table[class*='table'] tbody tr",
-            "div[class*='table'] tbody tr",
-            "tr[class*='simpTblRow']",
-            "tbody tr",
-            "table tr:not([class*='header'])",
-            "tr[data-test='quoteRow']",
-            "tr[class*='BdT']"
-        ]
+                # Selectors específicos para Yahoo Finance (mejorados)
+                selectors = [
+                    "table tbody tr",
+                    "div[data-test='fin-table'] tbody tr",
+                    "table[class*='table'] tbody tr",
+                    "div[class*='table'] tbody tr",
+                    "tr[class*='simpTblRow']",
+                    "tbody tr",
+                    "table tr:not([class*='header'])",
+                    "tr[data-test='quoteRow']",
+                    "tr[class*='BdT']"
+                ]
                 
                 rows = []
                 for selector in selectors:
@@ -463,6 +464,170 @@ async def scrape_yahoo():
     log_scraping_success("Yahoo Finance", total_items)
     
     return data
+
+def scrape_yahoo_paginated_section_sync(session: requests.Session, base_url: str, key: str, max_pages: int = 10) -> List[Dict[str, Any]]:
+    """Synchronous version of scrape_yahoo_paginated_section"""
+    all_data = []
+    
+    try:
+        for page in range(1, max_pages + 1):
+            try:
+                # Construir URL con parámetros de página
+                if "?" in base_url:
+                    page_url = f"{base_url}&offset={(page-1)*100}"
+                else:
+                    page_url = f"{base_url}?offset={(page-1)*100}"
+                
+                logger.debug(f"🌐 Procesando página {page} de {key}: {page_url}")
+                
+                headers = {
+                    "User-Agent": random.choice(USER_AGENTS),
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache"
+                }
+                
+                r = session.get(page_url, headers=headers, timeout=REQUEST_TIMEOUT)
+                r.raise_for_status()
+                
+                soup = BeautifulSoup(r.text, "lxml")
+                
+                # Selectors específicos para Yahoo Finance (mejorados)
+                selectors = [
+                    "table tbody tr",
+                    "div[data-test='fin-table'] tbody tr",
+                    "table[class*='table'] tbody tr",
+                    "div[class*='table'] tbody tr",
+                    "tr[class*='simpTblRow']",
+                    "tbody tr",
+                    "table tr:not([class*='header'])",
+                    "tr[data-test='quoteRow']",
+                    "tr[class*='BdT']"
+                ]
+                
+                rows = []
+                for selector in selectors:
+                    rows = soup.select(selector)
+                    if rows and len(rows) > 0:
+                        logger.debug(f"✅ Selector encontrado para {key} página {page}: {selector} - {len(rows)} filas")
+                        break
+                
+                if not rows:
+                    logger.warning(f"⚠️ No se encontraron filas en {key} página {page}")
+                    break  # Si no hay datos, probablemente llegamos al final
+                
+                page_data = []
+                for i, row in enumerate(rows):
+                    try:
+                        row_data = extract_yahoo_row_data(row, key)
+                        if row_data:
+                            page_data.append(row_data)
+                    except Exception as e:
+                        logger.debug(f"⚠️ Error procesando fila {i} en {key} página {page}: {e}")
+                        continue
+                
+                if not page_data:
+                    logger.warning(f"⚠️ No se extrajeron datos de {key} página {page}")
+                    break  # Si no hay datos válidos, terminar
+                
+                all_data.extend(page_data)
+                logger.debug(f"📊 Página {page} de {key}: {len(page_data)} elementos")
+                
+                # Delay entre páginas
+                time.sleep(random.uniform(1, 3))
+                
+            except requests.exceptions.Timeout:
+                logger.error(f"⏰ Timeout en {key} página {page}")
+                break
+            except requests.exceptions.RequestException as e:
+                logger.error(f"🌐 Error de red en {key} página {page}: {e}")
+                break
+            except Exception as e:
+                logger.error(f"❌ Error inesperado en {key} página {page}: {e}")
+                break
+        
+        logger.info(f"✅ Sección {key} completada: {len(all_data)} elementos totales")
+        return all_data
+        
+    except Exception as e:
+        logger.error(f"❌ Error procesando sección {key}: {e}")
+        return all_data
+
+def scrape_yahoo_section_sync(session: requests.Session, url: str, key: str) -> List[Dict[str, Any]]:
+    """Synchronous version of scrape_yahoo_section"""
+    try:
+        logger.debug(f"🌐 Solicitando {url}")
+        
+        headers = {
+            "User-Agent": random.choice(USER_AGENTS),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "DNT": "1"
+        }
+        
+        response = session.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, "lxml")
+        
+        # Selectors para páginas no paginadas (mejorados)
+        selectors = [
+            "table tbody tr",
+            "div[data-test='fin-table'] tbody tr",
+            "table[class*='table'] tbody tr",
+            "div[class*='table'] tbody tr",
+            "tr[class*='simpTblRow']",
+            "tbody tr",
+            "table tr:not([class*='header'])",
+            "tr[data-test='quoteRow']",
+            "tr[class*='BdT']"
+        ]
+        
+        rows = []
+        for selector in selectors:
+            rows = soup.select(selector)
+            if rows and len(rows) > 0:
+                logger.debug(f"✅ Selector encontrado para {key}: {selector} - {len(rows)} filas")
+                break
+        
+        if not rows:
+            logger.warning(f"⚠️ No se encontraron filas en {key}")
+            return []
+        
+        # Procesar todas las filas (máximo 50)
+        data_rows = rows[:50]
+        section_data = []
+        
+        for i, row in enumerate(data_rows):
+            try:
+                row_data = extract_yahoo_row_data(row, key)
+                if row_data:
+                    section_data.append(row_data)
+            except Exception as e:
+                logger.debug(f"⚠️ Error procesando fila {i} en {key}: {e}")
+                continue
+        
+        logger.debug(f"✅ Sección {key} procesada: {len(section_data)} elementos")
+        return section_data
+        
+    except requests.exceptions.Timeout:
+        logger.error(f"⏰ Timeout en {key}")
+        return []
+    except requests.exceptions.RequestException as e:
+        logger.error(f"🌐 Error de red en {key}: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"❌ Error inesperado en {key}: {e}")
+        return []
 
 def scrape_yahoo_sync():
     """Synchronous version of Yahoo Finance scraping function"""
