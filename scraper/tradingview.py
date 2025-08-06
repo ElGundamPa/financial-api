@@ -6,42 +6,30 @@ from bs4 import BeautifulSoup
 from typing import Dict, List, Any
 from config import USER_AGENTS, REQUEST_TIMEOUT, TRADINGVIEW_URLS
 from logger import logger, log_scraping_start, log_scraping_success, log_scraping_error
+import asyncio
 
-def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dict[str, str]]:
-    """
-    Scrape a specific section from TradingView using requests and BeautifulSoup
-    """
+async def scrape_tradingview_section(page, url: str, section_name: str) -> List[Dict[str, Any]]:
+    """Scrape a specific section from TradingView with improved data extraction"""
     try:
-        logger.info(f"🔄 Procesando sección: {section_name}")
         logger.debug(f"🌐 Navegando a {url}")
+        await page.goto(url, wait_until="networkidle", timeout=30000)
         
-        # Prepare headers for the request
-        headers = {
-            "User-Agent": random.choice(USER_AGENTS),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
-        }
+        # Wait for content to load
+        await asyncio.sleep(3)
         
-        # Make the request with increased timeout for TradingView
-        response = session.get(url, headers=headers, timeout=30)  # 30 seconds timeout
-        response.raise_for_status()
+        # Handle "Load More" button for forex and other sections
+        if section_name in ["forex", "acciones"]:
+            await handle_load_more_button(page, section_name)
         
-        # Parse the HTML
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # Take screenshot for debugging
+        screenshot_path = f"screenshots/tradingview_{section_name}_{int(time.time())}.png"
+        await page.screenshot(path=screenshot_path)
+        logger.debug(f"📸 HTML guardado: {screenshot_path}")
         
-        # Take screenshot for debugging if enabled
-        if os.getenv("ENABLE_SCREENSHOTS", "false").lower() == "true":
-            os.makedirs("screenshots", exist_ok=True)
-            screenshot_path = os.path.join("screenshots", f"tradingview_{section_name}.html")
-            with open(screenshot_path, 'w', encoding='utf-8') as f:
-                f.write(response.text)
-            logger.debug(f"📸 HTML guardado: {screenshot_path}")
-
+        # Get page content
+        content = await page.content()
+        soup = BeautifulSoup(content, "lxml")
+        
         # Selectors mejorados para TradingView
         if section_name == "indices":
             # Selectors específicos para índices
@@ -63,7 +51,24 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
                 "tbody tr",
                 "tr",
                 ".tv-data-table__row",
-                ".tv-screener__content-row"
+                ".tv-screener__content-row",
+                "[data-role='symbol']",
+                "div[class*='symbol']"
+            ]
+        elif section_name == "acciones":
+            # Selectors específicos para acciones
+            selectors = [
+                "table tbody tr",
+                "div[class*='row']",
+                "tr[class*='row']",
+                "table tr",
+                "tbody tr",
+                "tr",
+                ".tv-data-table__row",
+                ".tv-screener__content-row",
+                "[data-role='symbol']",
+                "div[class*='symbol']",
+                "tr[class*='table-light']"
             ]
         else:
             # Selectors para otras secciones
@@ -97,58 +102,79 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
             except Exception as e:
                 logger.debug(f"⚠️ Error con selector {selector}: {e}")
                 continue
-            
-            rows = []
-            for selector in selectors:
-                try:
-                    elements = soup.select(selector)
-                    if elements and len(elements) > 0:
-                        rows = elements
-                        logger.debug(f"✅ Selector encontrado: {selector} - {len(rows)} filas")
-                        break
-                except Exception as e:
-                    logger.debug(f"⚠️ Error con selector {selector}: {e}")
-                    continue
         
         if not rows:
-            logger.warning(f"⚠️ No se encontraron filas de datos en {section_name}")
+            logger.warning(f"⚠️ No se encontraron filas en {section_name}")
             return []
-
-        data = []
-        processed_count = 0
         
-        # Procesar TODAS las filas para índices, máximo 50 para otras secciones
-        max_rows = len(rows) if section_name == "indices" else min(50, len(rows))
+        # Process all rows (no limit for indices, up to 100 for others)
+        max_rows = 1000 if section_name == "indices" else 100
+        data_rows = rows[:max_rows]
         
-        for i, row in enumerate(rows[:max_rows]):
+        section = []
+        for i, row in enumerate(data_rows):
             try:
-                # Extraer datos de la fila
                 row_data = extract_row_data(row, section_name)
-                
                 if row_data:
-                    data.append(row_data)
-                    processed_count += 1
-                    
-                    # Log cada 10 elementos procesados
-                    if processed_count % 10 == 0:
-                        logger.debug(f"📊 Procesados {processed_count} elementos de {section_name}")
-                    
+                    section.append(row_data)
+                    logger.debug(f"📊 {section_name}: {row_data.get('nombre', 'N/A')} - {row_data.get('precio', 'N/A')}")
             except Exception as e:
-                logger.debug(f"⚠️ Error procesando fila {i}: {e}")
+                logger.debug(f"⚠️ Error procesando fila {i} en {section_name}: {e}")
                 continue
         
-        logger.info(f"✅ Sección {section_name} procesada: {processed_count} elementos")
-        return data
+        logger.debug(f"✅ Sección {section_name} procesada: {len(section)} elementos")
+        return section
         
-    except requests.exceptions.Timeout as e:
-        logger.error(f"⏰ Timeout en {section_name}: {e}")
-        return []
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Error de red en {section_name}: {e}")
-        return []
     except Exception as e:
-        logger.error(f"❌ Error inesperado en {section_name}: {e}")
+        logger.error(f"❌ Error scraping {section_name}: {e}")
         return []
+
+async def handle_load_more_button(page, section_name: str):
+    """Handle 'Load More' button to get all available data"""
+    try:
+        max_clicks = 10  # Maximum number of "Load More" clicks
+        clicks = 0
+        
+        while clicks < max_clicks:
+            # Look for "Load More" button with different possible selectors
+            load_more_selectors = [
+                "button[class*='load-more']",
+                "button[class*='LoadMore']",
+                "button:contains('Cargar más')",
+                "button:contains('Load more')",
+                "button:contains('Show more')",
+                "button:contains('Mostrar más')",
+                "[data-role='load-more']",
+                ".tv-load-more__btn",
+                ".tv-screener__load-more",
+                "button[class*='tv-button']"
+            ]
+            
+            button_found = False
+            for selector in load_more_selectors:
+                try:
+                    # Check if button exists and is visible
+                    button = await page.query_selector(selector)
+                    if button:
+                        is_visible = await button.is_visible()
+                        if is_visible:
+                            # Click the button
+                            await button.click()
+                            await asyncio.sleep(2)  # Wait for content to load
+                            clicks += 1
+                            button_found = True
+                            logger.debug(f"🔄 Clic {clicks} en 'Cargar más' para {section_name}")
+                            break
+                except Exception as e:
+                    logger.debug(f"⚠️ Error con selector de botón {selector}: {e}")
+                    continue
+            
+            if not button_found:
+                logger.debug(f"✅ No se encontraron más botones 'Cargar más' para {section_name}")
+                break
+                
+    except Exception as e:
+        logger.debug(f"⚠️ Error manejando botón 'Cargar más' para {section_name}: {e}")
 
 def extract_row_data(row, section_name: str) -> Dict[str, str]:
     """
@@ -301,9 +327,48 @@ def scrape_tradingview() -> Dict[str, List[Dict[str, str]]]:
     
     return result
 
-# Función de compatibilidad para mantener la interfaz async
+# Función async que usa Playwright para mejor rendimiento
 async def scrape_tradingview_async():
     """
-    Async wrapper for the synchronous scraping function
+    Main TradingView scraping function using Playwright with improved error handling
     """
-    return scrape_tradingview()
+    log_scraping_start("TradingView")
+    
+    data = {}
+    
+    try:
+        # Launch browser
+        browser = await launch_browser()
+        page = await browser.new_page()
+        
+        # Set user agent
+        await page.set_user_agent(random.choice(USER_AGENTS))
+        
+        # Set viewport for better rendering
+        await page.set_viewport_size({"width": 1920, "height": 1080})
+        
+        for key, url in TRADINGVIEW_URLS.items():
+            try:
+                logger.info(f"🔄 Procesando sección: {key}")
+                section_data = await scrape_tradingview_section(page, url, key)
+                data[key] = section_data
+                
+                # Add delay between requests to avoid rate limiting
+                await asyncio.sleep(random.uniform(3, 6))
+                
+            except Exception as e:
+                log_scraping_error(key, e)
+                data[key] = []
+                
+    except Exception as e:
+        log_scraping_error("TradingView", e)
+        return {}
+    finally:
+        if 'browser' in locals():
+            await browser.close()
+    
+    # Log success
+    total_items = sum(len(section) for section in data.values())
+    log_scraping_success("TradingView", total_items)
+    
+    return data

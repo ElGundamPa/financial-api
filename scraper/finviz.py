@@ -8,7 +8,7 @@ from config import USER_AGENTS, FINVIZ_URLS, REQUEST_TIMEOUT
 from logger import logger, log_scraping_start, log_scraping_success, log_scraping_error
 
 async def scrape_finviz_section(session: requests.Session, url: str, key: str) -> List[Dict[str, Any]]:
-    """Scrape a specific section from Finviz with improved selectors"""
+    """Scrape a specific section from Finviz with improved selectors and error handling"""
     try:
         headers = {
             "User-Agent": random.choice(USER_AGENTS),
@@ -21,7 +21,8 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
             "Pragma": "no-cache",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none"
+            "Sec-Fetch-Site": "none",
+            "DNT": "1"
         }
         
         logger.debug(f"🌐 Solicitando {url}")
@@ -31,7 +32,7 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
         soup = BeautifulSoup(r.text, "lxml")
         section = []
         
-        # Selectors mejorados para Finviz
+        # Selectors mejorados y específicos para Finviz
         selectors = {
             "forex": [
                 "table#screener-content-table tr",
@@ -39,7 +40,10 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                 "table tr",
                 ".table-light tr",
                 "tr[class*='table-light']",
-                "tbody tr"
+                "tbody tr",
+                "table.screener_table tr",
+                "tr[class*='screener']",
+                "table tr:not([class*='header'])"
             ],
             "acciones": [
                 "table#screener-content-table tr",
@@ -47,7 +51,10 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                 "table tr",
                 ".table-light tr",
                 "tr[class*='table-light']",
-                "tbody tr"
+                "tbody tr",
+                "table.screener_table tr",
+                "tr[class*='screener']",
+                "table tr:not([class*='header'])"
             ],
             "indices": [
                 "table#screener-content-table tr",
@@ -55,7 +62,10 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                 "table tr",
                 ".table-light tr",
                 "tr[class*='table-light']",
-                "tbody tr"
+                "tbody tr",
+                "table.screener_table tr",
+                "tr[class*='screener']",
+                "table tr:not([class*='header'])"
             ]
         }
         
@@ -67,15 +77,28 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
             try:
                 found_rows = soup.select(selector)
                 if found_rows and len(found_rows) > 2:  # Más de 2 para excluir headers
-                    rows = found_rows
-                    logger.debug(f"✅ Selector encontrado para {key}: {selector} - {len(rows)} filas")
-                    break
+                    # Filtrar filas que contengan datos reales
+                    valid_rows = []
+                    for row in found_rows:
+                        text = row.get_text(strip=True)
+                        # Verificar que la fila contenga datos financieros, no navegación
+                        if (len(text) > 10 and 
+                            not any(nav_word in text.lower() for nav_word in 
+                                   ['home', 'news', 'screener', 'maps', 'groups', 'portfolio', 
+                                    'insider', 'futures', 'forex', 'crypto', 'backtests', 
+                                    'pricing', 'theme', 'help', 'login', 'register'])):
+                            valid_rows.append(row)
+                    
+                    if valid_rows:
+                        rows = valid_rows
+                        logger.debug(f"✅ Selector encontrado para {key}: {selector} - {len(rows)} filas válidas")
+                        break
             except Exception as e:
                 logger.debug(f"⚠️ Error con selector {selector}: {e}")
                 continue
         
         if not rows:
-            logger.warning(f"⚠️ No se encontraron filas en {key}")
+            logger.warning(f"⚠️ No se encontraron filas válidas en {key}")
             return []
         
         # Skip header rows and process all data rows (máximo 100)
@@ -86,11 +109,11 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                 cols = row.find_all("td")
                 
                 if key == "forex" and len(cols) >= 3:
-                    par = cols[0].text.strip()
-                    precio = cols[1].text.strip()
-                    cambio = cols[2].text.strip()
+                    par = cols[0].get_text(strip=True)
+                    precio = cols[1].get_text(strip=True)
+                    cambio = cols[2].get_text(strip=True)
                     
-                    if par and precio and par != "Symbol":  # Validate data and skip headers
+                    if par and precio and par != "Symbol" and len(par) < 20:  # Validate data and skip headers
                         section.append({
                             "par": par,
                             "precio": precio,
@@ -99,12 +122,12 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                         logger.debug(f"📊 Forex: {par} - {precio} - {cambio}")
                         
                 elif key == "acciones" and len(cols) >= 4:
-                    ticker = cols[1].text.strip() if len(cols) > 1 else ""
-                    nombre = cols[2].text.strip() if len(cols) > 2 else ""
-                    precio = cols[3].text.strip() if len(cols) > 3 else ""
-                    cambio = cols[4].text.strip() if len(cols) > 4 else ""
+                    ticker = cols[1].get_text(strip=True) if len(cols) > 1 else ""
+                    nombre = cols[2].get_text(strip=True) if len(cols) > 2 else ""
+                    precio = cols[3].get_text(strip=True) if len(cols) > 3 else ""
+                    cambio = cols[4].get_text(strip=True) if len(cols) > 4 else ""
                     
-                    if ticker and ticker != "No.":  # Validate data and skip headers
+                    if ticker and ticker != "No." and len(ticker) < 10:  # Validate data and skip headers
                         section.append({
                             "ticker": ticker,
                             "nombre": nombre,
@@ -114,11 +137,11 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                         logger.debug(f"📊 Acción: {ticker} - {nombre} - {precio}")
                         
                 elif key == "indices" and len(cols) >= 3:
-                    indice = cols[0].text.strip()
-                    precio = cols[1].text.strip()
-                    cambio = cols[2].text.strip()
+                    indice = cols[0].get_text(strip=True)
+                    precio = cols[1].get_text(strip=True)
+                    cambio = cols[2].get_text(strip=True)
                     
-                    if indice and precio and indice != "Index":  # Validate data and skip headers
+                    if indice and precio and indice != "Index" and len(indice) < 50:  # Validate data and skip headers
                         section.append({
                             "indice": indice,
                             "precio": precio,
