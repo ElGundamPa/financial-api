@@ -33,9 +33,9 @@ TRADINGVIEW_URLS: Dict[str, str] = {
 }
 
 FINVIZ_URLS: Dict[str, str] = {
-    "forex": "https://finviz.com/forex.ashx?v=111",
-    "acciones": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=cap_large",
-    "indices": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=idx_sp500"
+    "forex": "https://finviz.com/forex.ashx",
+    "acciones": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers",
+    "indices": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers"
 }
 
 YAHOO_URLS: Dict[str, str] = {
@@ -44,7 +44,7 @@ YAHOO_URLS: Dict[str, str] = {
     "losers": "https://finance.yahoo.com/markets/stocks/losers/",
     "most_active_stocks": "https://finance.yahoo.com/markets/stocks/most-active/",
     "most_active_etfs": "https://finance.yahoo.com/markets/etfs/most-active/",
-    "undervalued_growth": "https://finance.yahoo.com/research-hub/screener/undervalued_growth_stocks/",
+    "undervalued_growth": "https://finance.yahoo.com/screener/predefined/undervalued_stocks",
     "materias_primas": "https://finance.yahoo.com/commodities",
     "indices": "https://finance.yahoo.com/quote/%5EGSPC,%5EIXIC,%5EDJI,%5ERUT,%5EVIX"
 }

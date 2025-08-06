@@ -9,7 +9,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from scraper.tradingview import scrape_tradingview
 from scraper.finviz import scrape_finviz
-from scraper.yahoo import scrape_yahoo
+from scraper.yahoo import scrape_yahoo_sync
 from data_store import update_data, get_data, get_data_summary
 from config import (
     SCRAPING_INTERVAL_MINUTES, 
@@ -48,41 +48,33 @@ async def scraping_job():
     logger.info("🚀 Iniciando job de scraping programado...")
     
     try:
-        # Run Finviz and Yahoo concurrently (they are async)
-        async_tasks = [
-            scrape_finviz(),
-            scrape_yahoo()
-        ]
-        
-        # Run TradingView synchronously in a thread to avoid blocking
+        # Run all scrapers in threads since they are now synchronous
         import concurrent.futures
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit TradingView scraping to thread pool
+            # Submit all scrapers to thread pool
             tv_future = executor.submit(scrape_tradingview)
+            fz_future = executor.submit(scrape_finviz)
+            yh_future = executor.submit(scrape_yahoo_sync)
             
-            # Run async scrapers
-            async_results = await asyncio.gather(*async_tasks, return_exceptions=True)
-            
-            # Get TradingView result
+            # Get results with timeout
             try:
                 tv = tv_future.result(timeout=120)  # 2 minutes timeout
             except Exception as e:
                 logger.error(f"❌ Error en TradingView: {e}")
                 tv = {}
-        
-        # Extract results and handle exceptions
-        fz, yh = {}, {}
-        
-        if not isinstance(async_results[0], Exception):
-            fz = async_results[0]
-        else:
-            logger.error(f"❌ Error en Finviz: {async_results[0]}")
-            
-        if not isinstance(async_results[1], Exception):
-            yh = async_results[1]
-        else:
-            logger.error(f"❌ Error en Yahoo: {async_results[1]}")
+                
+            try:
+                fz = fz_future.result(timeout=120)  # 2 minutes timeout
+            except Exception as e:
+                logger.error(f"❌ Error en Finviz: {e}")
+                fz = {}
+                
+            try:
+                yh = yh_future.result(timeout=120)  # 2 minutes timeout
+            except Exception as e:
+                logger.error(f"❌ Error en Yahoo: {e}")
+                yh = {}
         
         # Update data store
         update_data(tv, fz, yh)

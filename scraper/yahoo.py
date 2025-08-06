@@ -37,15 +37,18 @@ async def scrape_yahoo_paginated_section(session: requests.Session, base_url: st
                 
                 soup = BeautifulSoup(r.text, "lxml")
                 
-                # Selectors específicos para Yahoo Finance
-                selectors = [
-                    "table tbody tr",
-                    "div[data-test='fin-table'] tbody tr",
-                    "table[class*='table'] tbody tr",
-                    "div[class*='table'] tbody tr",
-                    "tr[class*='simpTblRow']",
-                    "tbody tr"
-                ]
+                        # Selectors específicos para Yahoo Finance (mejorados)
+        selectors = [
+            "table tbody tr",
+            "div[data-test='fin-table'] tbody tr",
+            "table[class*='table'] tbody tr",
+            "div[class*='table'] tbody tr",
+            "tr[class*='simpTblRow']",
+            "tbody tr",
+            "table tr:not([class*='header'])",
+            "tr[data-test='quoteRow']",
+            "tr[class*='BdT']"
+        ]
                 
                 rows = []
                 for selector in selectors:
@@ -98,9 +101,15 @@ async def scrape_yahoo_paginated_section(session: requests.Session, base_url: st
 def extract_yahoo_row_data(row, key: str) -> Dict[str, Any]:
     """Extract data from a Yahoo Finance table row"""
     try:
-        cols = row.find_all("td")
+        # Buscar tanto td como th para mayor compatibilidad
+        cols = row.find_all(["td", "th"])
         
         if len(cols) < 2:
+            return None
+        
+        # Filtrar filas de header
+        row_text = row.get_text(strip=True).lower()
+        if any(header_word in row_text for header_word in ['symbol', 'name', 'price', 'change', 'volume', 'market cap']):
             return None
         
         # Extraer datos según el tipo de sección
@@ -119,7 +128,8 @@ def extract_yahoo_row_data(row, key: str) -> Dict[str, Any]:
         elif key == "materias_primas":
             return extract_commodities_data(cols)
         elif key == "indices":
-            return await extract_indices_data(soup)
+            # Para índices, usar una función sincrónica simple
+            return extract_indices_data_sync(cols)
         else:
             return extract_generic_data(cols)
             
@@ -218,6 +228,25 @@ def extract_forex_data(cols) -> Dict[str, Any]:
 def extract_commodities_data(cols) -> Dict[str, Any]:
     """Extract data from commodities table"""
     return extract_forex_data(cols)  # Misma estructura
+
+def extract_indices_data_sync(cols) -> Dict[str, Any]:
+    """Extract data from indices table (synchronous version)"""
+    try:
+        if len(cols) >= 3:
+            return {
+                "indice": cols[0].text.strip(),
+                "precio": cols[1].text.strip(),
+                "cambio": cols[2].text.strip()
+            }
+        elif len(cols) >= 2:
+            return {
+                "indice": cols[0].text.strip(),
+                "precio": cols[1].text.strip(),
+                "cambio": "N/A"
+            }
+    except Exception:
+        pass
+    return None
 
 async def extract_indices_data(soup: BeautifulSoup) -> List[Dict[str, str]]:
     """Extract indices data from Yahoo Finance"""
@@ -329,14 +358,17 @@ async def scrape_yahoo_section(session: requests.Session, url: str, key: str) ->
         
         soup = BeautifulSoup(r.text, "lxml")
         
-        # Selectors para páginas no paginadas
+        # Selectors para páginas no paginadas (mejorados)
         selectors = [
             "table tbody tr",
             "div[data-test='fin-table'] tbody tr",
             "table[class*='table'] tbody tr",
             "div[class*='table'] tbody tr",
             "tr[class*='simpTblRow']",
-            "tbody tr"
+            "tbody tr",
+            "table tr:not([class*='header'])",
+            "tr[data-test='quoteRow']",
+            "tr[class*='BdT']"
         ]
         
         rows = []
@@ -415,6 +447,62 @@ async def scrape_yahoo():
                 
                 # Add delay between sections
                 await asyncio.sleep(random.uniform(2, 4))
+                
+            except Exception as e:
+                log_scraping_error(key, e)
+                data[key] = []
+                
+    except Exception as e:
+        log_scraping_error("Yahoo Finance", e)
+        return {}
+    finally:
+        session.close()
+    
+    # Log success
+    total_items = sum(len(section) for section in data.values())
+    log_scraping_success("Yahoo Finance", total_items)
+    
+    return data
+
+def scrape_yahoo_sync():
+    """Synchronous version of Yahoo Finance scraping function"""
+    log_scraping_start("Yahoo Finance")
+    
+    data = {}
+    session = requests.Session()
+    
+    try:
+        # Configure session
+        session.headers.update({
+            "User-Agent": random.choice(USER_AGENTS)
+        })
+        
+        # Configurar páginas máximas para cada sección (reducidas para versión sync)
+        paginated_sections = {
+            "gainers": 10,       # Reducido de 149 a 10
+            "losers": 10,        # Reducido de 148 a 10
+            "most_active_stocks": 10,  # Reducido de 50 a 10
+            "most_active_etfs": 10,    # Reducido de 50 a 10
+            "undervalued_growth": 5    # Reducido de 20 a 5
+        }
+        
+        for key, url in YAHOO_URLS.items():
+            try:
+                logger.info(f"🔄 Procesando sección: {key}")
+                
+                if key in paginated_sections:
+                    # Sección paginada (versión sincrónica)
+                    section_data = scrape_yahoo_paginated_section_sync(
+                        session, url, key, paginated_sections[key]
+                    )
+                else:
+                    # Sección no paginada (versión sincrónica)
+                    section_data = scrape_yahoo_section_sync(session, url, key)
+                
+                data[key] = section_data
+                
+                # Add delay between sections
+                time.sleep(random.uniform(2, 4))
                 
             except Exception as e:
                 log_scraping_error(key, e)
