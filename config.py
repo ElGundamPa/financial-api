@@ -29,7 +29,7 @@ TRADINGVIEW_URLS: Dict[str, str] = {
     "indices": "https://es.tradingview.com/markets/indices/quotes-all/",
     "acciones": "https://es.tradingview.com/markets/stocks-usa/",
     "cripto": "https://es.tradingview.com/markets/cryptocurrencies/",
-    "forex": "https://es.tradingview.com/markets/currencies/"
+    "forex": "https://es.tradingview.com/markets/currencies/rates-major/"
 }
 
 FINVIZ_URLS: Dict[str, str] = {

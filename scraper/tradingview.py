@@ -42,18 +42,29 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
                 f.write(response.text)
             logger.debug(f"📸 HTML guardado: {screenshot_path}")
 
-        # Selectors específicos para la página de índices
+        # Selectors mejorados para TradingView
         if section_name == "indices":
-            # Selector principal para la tabla de índices
-            rows = soup.select("table tbody tr")
-            
-            if not rows:
-                # Selector alternativo para diferentes layouts
-                rows = soup.select("div[class*='row']")
-            
-            if not rows:
-                # Selector más genérico
-                rows = soup.select("tr")
+            # Selectors específicos para índices
+            selectors = [
+                "table tbody tr",
+                "div[class*='row']",
+                "tr[class*='row']",
+                "table tr",
+                "tbody tr",
+                "tr"
+            ]
+        elif section_name == "forex":
+            # Selectors específicos para forex
+            selectors = [
+                "table tbody tr",
+                "div[class*='row']",
+                "tr[class*='row']",
+                "table tr",
+                "tbody tr",
+                "tr",
+                ".tv-data-table__row",
+                ".tv-screener__content-row"
+            ]
         else:
             # Selectors para otras secciones
             selectors = [
@@ -74,6 +85,18 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
                 "div[class*='symbol']",
                 "div[class*='price']"
             ]
+        
+        rows = []
+        for selector in selectors:
+            try:
+                found_rows = soup.select(selector)
+                if found_rows and len(found_rows) > 0:
+                    rows = found_rows
+                    logger.debug(f"✅ Selector encontrado para {section_name}: {selector} - {len(rows)} filas")
+                    break
+            except Exception as e:
+                logger.debug(f"⚠️ Error con selector {selector}: {e}")
+                continue
             
             rows = []
             for selector in selectors:

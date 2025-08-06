@@ -2,6 +2,7 @@ import asyncio
 import threading
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -35,6 +36,9 @@ app.add_middleware(
     allow_headers=CORS_ALLOW_HEADERS,
     max_age=CORS_MAX_AGE,
 )
+
+# Add Gzip compression middleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Global scheduler
 scheduler = None
@@ -127,7 +131,7 @@ async def root():
     log_api_request("GET", "/")
     return {
         "message": "Financial Data API",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "description": "API organizada para datos financieros de múltiples fuentes",
         "endpoints": {
             "general": {
@@ -149,7 +153,23 @@ async def root():
                 "/datos/finviz": "Todos los datos de Finviz",
                 "/datos/yahoo": "Todos los datos de Yahoo Finance"
             },
+            "tradingview_especifico": {
+                "/datos/tradingview/indices": "Solo índices de TradingView",
+                "/datos/tradingview/acciones": "Solo acciones de TradingView",
+                "/datos/tradingview/cripto": "Solo cripto de TradingView",
+                "/datos/tradingview/forex": "Solo forex de TradingView"
+            },
+            "finviz_especifico": {
+                "/datos/finviz/indices": "Solo índices de Finviz",
+                "/datos/finviz/acciones": "Solo acciones de Finviz",
+                "/datos/finviz/forex": "Solo forex de Finviz"
+            },
             "yahoo_especifico": {
+                "/datos/yahoo/indices": "Solo índices de Yahoo",
+                "/datos/yahoo/acciones": "Solo acciones de Yahoo",
+                "/datos/yahoo/forex": "Solo forex de Yahoo",
+                "/datos/yahoo/etfs": "Solo ETFs de Yahoo",
+                "/datos/yahoo/materias-primas": "Solo materias primas de Yahoo",
                 "/datos/yahoo/gainers": "Acciones con mayor ganancia",
                 "/datos/yahoo/losers": "Acciones con mayor pérdida",
                 "/datos/yahoo/most-active": "Acciones y ETFs más activos",
@@ -431,4 +451,195 @@ async def get_yahoo_undervalued():
         return JSONResponse(content=undervalued_data, status_code=200)
     except Exception as e:
         logger.error(f"❌ Error obteniendo undervalued: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+# ===== ENDPOINTS ESPECÍFICOS POR FUENTE Y TIPO =====
+
+# === TRADINGVIEW ESPECÍFICO ===
+
+@app.get("/datos/tradingview/indices")
+async def get_tradingview_indices():
+    """Get TradingView indices data only"""
+    log_api_request("GET", "/datos/tradingview/indices")
+    try:
+        data = get_data()
+        indices_data = {
+            "indices": data.get("tradingview", {}).get("indices", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=indices_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo TradingView índices: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/tradingview/acciones")
+async def get_tradingview_acciones():
+    """Get TradingView stocks data only"""
+    log_api_request("GET", "/datos/tradingview/acciones")
+    try:
+        data = get_data()
+        acciones_data = {
+            "acciones": data.get("tradingview", {}).get("acciones", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=acciones_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo TradingView acciones: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/tradingview/cripto")
+async def get_tradingview_cripto():
+    """Get TradingView cryptocurrency data only"""
+    log_api_request("GET", "/datos/tradingview/cripto")
+    try:
+        data = get_data()
+        cripto_data = {
+            "cripto": data.get("tradingview", {}).get("cripto", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=cripto_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo TradingView cripto: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/tradingview/forex")
+async def get_tradingview_forex():
+    """Get TradingView forex data only"""
+    log_api_request("GET", "/datos/tradingview/forex")
+    try:
+        data = get_data()
+        forex_data = {
+            "forex": data.get("tradingview", {}).get("forex", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=forex_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo TradingView forex: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+# === FINVIZ ESPECÍFICO ===
+
+@app.get("/datos/finviz/indices")
+async def get_finviz_indices():
+    """Get Finviz indices data only"""
+    log_api_request("GET", "/datos/finviz/indices")
+    try:
+        data = get_data()
+        indices_data = {
+            "indices": data.get("finviz", {}).get("indices", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=indices_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Finviz índices: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/finviz/acciones")
+async def get_finviz_acciones():
+    """Get Finviz stocks data only"""
+    log_api_request("GET", "/datos/finviz/acciones")
+    try:
+        data = get_data()
+        acciones_data = {
+            "acciones": data.get("finviz", {}).get("acciones", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=acciones_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Finviz acciones: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/finviz/forex")
+async def get_finviz_forex():
+    """Get Finviz forex data only"""
+    log_api_request("GET", "/datos/finviz/forex")
+    try:
+        data = get_data()
+        forex_data = {
+            "forex": data.get("finviz", {}).get("forex", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=forex_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Finviz forex: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+# === YAHOO ESPECÍFICO ===
+
+@app.get("/datos/yahoo/indices")
+async def get_yahoo_indices():
+    """Get Yahoo Finance indices data only"""
+    log_api_request("GET", "/datos/yahoo/indices")
+    try:
+        data = get_data()
+        indices_data = {
+            "indices": data.get("yahoo", {}).get("indices", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=indices_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Yahoo índices: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/acciones")
+async def get_yahoo_acciones():
+    """Get Yahoo Finance stocks data only"""
+    log_api_request("GET", "/datos/yahoo/acciones")
+    try:
+        data = get_data()
+        acciones_data = {
+            "gainers": data.get("yahoo", {}).get("gainers", []),
+            "losers": data.get("yahoo", {}).get("losers", []),
+            "most_active_stocks": data.get("yahoo", {}).get("most_active_stocks", []),
+            "undervalued_growth": data.get("yahoo", {}).get("undervalued_growth", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=acciones_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Yahoo acciones: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/forex")
+async def get_yahoo_forex():
+    """Get Yahoo Finance forex data only"""
+    log_api_request("GET", "/datos/yahoo/forex")
+    try:
+        data = get_data()
+        forex_data = {
+            "forex": data.get("yahoo", {}).get("forex", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=forex_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Yahoo forex: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/etfs")
+async def get_yahoo_etfs():
+    """Get Yahoo Finance ETFs data only"""
+    log_api_request("GET", "/datos/yahoo/etfs")
+    try:
+        data = get_data()
+        etfs_data = {
+            "most_active_etfs": data.get("yahoo", {}).get("most_active_etfs", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=etfs_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Yahoo ETFs: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/datos/yahoo/materias-primas")
+async def get_yahoo_materias_primas():
+    """Get Yahoo Finance commodities data only"""
+    log_api_request("GET", "/datos/yahoo/materias-primas")
+    try:
+        data = get_data()
+        commodities_data = {
+            "materias_primas": data.get("yahoo", {}).get("materias_primas", []),
+            "last_updated": data.get("last_updated")
+        }
+        return JSONResponse(content=commodities_data, status_code=200)
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Yahoo materias primas: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
