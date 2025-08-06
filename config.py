@@ -26,7 +26,7 @@ USER_AGENTS: List[str] = [
 
 # URLs for scraping
 TRADINGVIEW_URLS: Dict[str, str] = {
-    "indices": "https://es.tradingview.com/markets/indices/",
+    "indices": "https://es.tradingview.com/markets/indices/quotes-all/",
     "acciones": "https://es.tradingview.com/markets/stocks-usa/",
     "cripto": "https://es.tradingview.com/markets/cryptocurrencies/",
     "forex": "https://es.tradingview.com/markets/currencies/"
@@ -40,7 +40,11 @@ FINVIZ_URLS: Dict[str, str] = {
 
 YAHOO_URLS: Dict[str, str] = {
     "forex": "https://finance.yahoo.com/currencies",
-    "acciones": "https://finance.yahoo.com/most-active",
+    "gainers": "https://finance.yahoo.com/markets/stocks/gainers/",
+    "losers": "https://finance.yahoo.com/markets/stocks/losers/",
+    "most_active_stocks": "https://finance.yahoo.com/markets/stocks/most-active/",
+    "most_active_etfs": "https://finance.yahoo.com/markets/etfs/most-active/",
+    "undervalued_growth": "https://finance.yahoo.com/research-hub/screener/undervalued_growth_stocks/",
     "materias_primas": "https://finance.yahoo.com/commodities",
     "indices": "https://finance.yahoo.com/world-indices"
 }
@@ -48,6 +52,13 @@ YAHOO_URLS: Dict[str, str] = {
 # Logging Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 LOG_FILE = os.getenv("LOG_FILE", "financial_api.log")
+
+# CORS Configuration - Muy Segura
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,https://tu-dominio.com").split(",")
+CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"  # Más seguro deshabilitado
+CORS_ALLOW_METHODS = os.getenv("CORS_ALLOW_METHODS", "GET,POST,OPTIONS").split(",")  # Solo métodos necesarios
+CORS_ALLOW_HEADERS = os.getenv("CORS_ALLOW_HEADERS", "Content-Type,Accept,User-Agent").split(",")  # Headers específicos
+CORS_MAX_AGE = int(os.getenv("CORS_MAX_AGE", "3600"))  # Cache por 1 hora
 
 # Screenshots Configuration
 SCREENSHOTS_DIR = os.getenv("SCREENSHOTS_DIR", "screenshots")

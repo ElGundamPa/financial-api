@@ -3,6 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Dict, Any
 from data_store import update_data, get_data, get_data_summary
+from config import (
+    CORS_ORIGINS, 
+    CORS_ALLOW_CREDENTIALS, 
+    CORS_ALLOW_METHODS, 
+    CORS_ALLOW_HEADERS
+)
 from logger import logger, log_api_request
 
 app = FastAPI(
@@ -30,7 +36,7 @@ async def root():
         "endpoints": {
             "/update_data": "POST - Recibir datos de scraping",
             "/datos": "GET - Obtener datos almacenados",
-            "/datos/summary": "GET - Obtener resumen de datos"
+            "/datos/resume": "GET - Obtener resumen de datos"
         }
     }
 
@@ -96,10 +102,10 @@ async def get_datos():
         logger.error(f"❌ Error obteniendo datos: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@app.get("/datos/summary")
-async def get_datos_summary():
-    """Get data summary"""
-    log_api_request("GET", "/datos/summary")
+@app.get("/datos/resume")
+async def get_datos_resume():
+    """Get data resume"""
+    log_api_request("GET", "/datos/resume")
     try:
         summary = get_data_summary()
         return JSONResponse(content=summary, status_code=200)

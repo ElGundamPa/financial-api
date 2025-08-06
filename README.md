@@ -66,7 +66,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 **Endpoints disponibles:**
 - `GET /` - Información de la API
 - `GET /datos` - Obtener todos los datos financieros
-- `GET /datos/summary` - Obtener resumen de datos
+- `GET /datos/resume` - Obtener resumen de datos
 - `POST /scrape` - Ejecutar scraping manualmente
 - `GET /health` - Verificar estado de la API
 
@@ -129,6 +129,11 @@ Los datos se almacenan en la siguiente estructura:
 | `LOG_LEVEL` | Nivel de logging | INFO |
 | `LOG_FILE` | Archivo de logs | financial_api.log |
 | `ENABLE_SCREENSHOTS` | Habilitar screenshots | true |
+| `CORS_ORIGINS` | Orígenes permitidos para CORS | http://localhost:3000,http://127.0.0.1:3000 |
+| `CORS_ALLOW_CREDENTIALS` | Permitir credenciales en CORS | false |
+| `CORS_ALLOW_METHODS` | Métodos HTTP permitidos | GET,POST,OPTIONS |
+| `CORS_ALLOW_HEADERS` | Headers permitidos | Content-Type,Accept,User-Agent |
+| `CORS_MAX_AGE` | Tiempo de cache CORS (segundos) | 3600 |
 
 ### Ejemplo de configuración
 

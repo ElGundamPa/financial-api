@@ -16,7 +16,9 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
         }
         
         logger.debug(f"🌐 Solicitando {url}")
@@ -26,22 +28,49 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
         soup = BeautifulSoup(r.text, "lxml")
         section = []
         
-        # Different selectors for different sections
+        # Selectors específicos para cada sección
         selectors = {
-            "forex": "table#screener-content-table tr",
-            "acciones": "table#screener-content-table tr", 
-            "indices": "table#screener-content-table tr"
+            "forex": [
+                "table#screener-content-table tr",
+                "table.table-light tr",
+                "table tr",
+                ".table-light tr"
+            ],
+            "acciones": [
+                "table#screener-content-table tr",
+                "table.table-light tr", 
+                "table tr",
+                ".table-light tr"
+            ],
+            "indices": [
+                "table#screener-content-table tr",
+                "table.table-light tr",
+                "table tr",
+                ".table-light tr"
+            ]
         }
         
-        selector = selectors.get(key, "table tr")
-        rows = soup.select(selector)
+        rows = []
+        selector_list = selectors.get(key, ["table tr"])
+        
+        # Intentar diferentes selectores
+        for selector in selector_list:
+            try:
+                found_rows = soup.select(selector)
+                if found_rows and len(found_rows) > 1:  # Más de 1 para excluir header
+                    rows = found_rows
+                    logger.debug(f"✅ Selector encontrado para {key}: {selector} - {len(rows)} filas")
+                    break
+            except Exception as e:
+                logger.debug(f"⚠️ Error con selector {selector}: {e}")
+                continue
         
         if not rows:
             logger.warning(f"⚠️ No se encontraron filas en {key}")
             return []
         
-        # Skip header row and take first 5 data rows
-        data_rows = rows[1:6] if len(rows) > 1 else []
+        # Skip header row and process all data rows (máximo 50)
+        data_rows = rows[1:51] if len(rows) > 1 else []
         
         for i, row in enumerate(data_rows):
             try:
@@ -61,15 +90,19 @@ async def scrape_finviz_section(session: requests.Session, url: str, key: str) -
                         logger.debug(f"📊 Forex: {par} - {precio} - {cambio}")
                         
                 elif key == "acciones" and len(cols) >= 3:
-                    ticker = cols[1].text.strip()
-                    nombre = cols[2].text.strip()
+                    ticker = cols[1].text.strip() if len(cols) > 1 else ""
+                    nombre = cols[2].text.strip() if len(cols) > 2 else ""
+                    precio = cols[3].text.strip() if len(cols) > 3 else ""
+                    cambio = cols[4].text.strip() if len(cols) > 4 else ""
                     
                     if ticker:  # Validate data
                         section.append({
                             "ticker": ticker,
-                            "nombre": nombre
+                            "nombre": nombre,
+                            "precio": precio,
+                            "cambio": cambio
                         })
-                        logger.debug(f"📊 Acción: {ticker} - {nombre}")
+                        logger.debug(f"📊 Acción: {ticker} - {nombre} - {precio}")
                         
                 elif key == "indices" and len(cols) >= 3:
                     indice = cols[0].text.strip()

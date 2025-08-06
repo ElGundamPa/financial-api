@@ -10,7 +10,14 @@ from scraper.tradingview import scrape_tradingview
 from scraper.finviz import scrape_finviz
 from scraper.yahoo import scrape_yahoo
 from data_store import update_data, get_data, get_data_summary
-from config import SCRAPING_INTERVAL_MINUTES
+from config import (
+    SCRAPING_INTERVAL_MINUTES, 
+    CORS_ORIGINS, 
+    CORS_ALLOW_CREDENTIALS, 
+    CORS_ALLOW_METHODS, 
+    CORS_ALLOW_HEADERS,
+    CORS_MAX_AGE
+)
 from logger import logger, log_api_request
 
 app = FastAPI(
@@ -19,13 +26,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware - Muy Seguro
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
+    allow_methods=CORS_ALLOW_METHODS,
+    allow_headers=CORS_ALLOW_HEADERS,
+    max_age=CORS_MAX_AGE,
 )
 
 # Global scheduler
@@ -122,7 +130,7 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "/datos": "Obtener todos los datos financieros",
-            "/datos/summary": "Obtener resumen de datos",
+            "/datos/resume": "Obtener resumen de datos",
             "/scrape": "Ejecutar scraping manualmente"
         }
     }
@@ -138,10 +146,10 @@ async def get_datos():
         logger.error(f"❌ Error obteniendo datos: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
-@app.get("/datos/summary")
-async def get_datos_summary():
-    """Get data summary"""
-    log_api_request("GET", "/datos/summary")
+@app.get("/datos/resume")
+async def get_datos_resume():
+    """Get data resume"""
+    log_api_request("GET", "/datos/resume")
     try:
         summary = get_data_summary()
         return JSONResponse(content=summary, status_code=200)

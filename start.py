@@ -90,7 +90,7 @@ def start_api(mode="main", host="0.0.0.0", port=8000, reload=True):
     print(f"📊 Endpoints disponibles:")
     print(f"   - GET  http://{host}:{port}/")
     print(f"   - GET  http://{host}:{port}/datos")
-    print(f"   - GET  http://{host}:{port}/datos/summary")
+    print(f"   - GET  http://{host}:{port}/datos/resume")
     print(f"   - POST http://{host}:{port}/scrape")
     print(f"   - GET  http://{host}:{port}/health")
     print("=" * 50)

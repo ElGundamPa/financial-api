@@ -4,16 +4,8 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from typing import Dict, List, Any
-from config import USER_AGENTS, REQUEST_TIMEOUT
+from config import USER_AGENTS, REQUEST_TIMEOUT, TRADINGVIEW_URLS
 from logger import logger, log_scraping_start, log_scraping_success, log_scraping_error
-
-# URLs específicas para cada sección (actualizadas)
-TRADINGVIEW_URLS = {
-    "indices": "https://www.tradingview.com/markets/stocks-usa/sectorandindustry-sector/",
-    "acciones": "https://www.tradingview.com/markets/stocks-usa/",
-    "cripto": "https://www.tradingview.com/markets/cryptocurrencies/",
-    "forex": "https://www.tradingview.com/markets/currencies/rates-major/"
-}
 
 def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dict[str, str]]:
     """
@@ -50,52 +42,50 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
                 f.write(response.text)
             logger.debug(f"📸 HTML guardado: {screenshot_path}")
 
-        # Multiple selector strategies for different page layouts
-        selectors = [
-            # Primary selectors for data tables
-            "table.tv-data-table > tbody > tr",
-            "table[class*='table'] > tbody > tr",
-            "div[class*='table'] table > tbody > tr",
-            "table > tbody > tr",
-            # Alternative selectors for different layouts
-            "div[class*='row']",
-            "div[class*='item']",
-            "tr[class*='row']",
-            # Generic selectors as fallback
-            "tbody > tr",
-            "table tr",
-            # Additional selectors for TradingView
-            "[data-role='symbol']",
-            ".tv-data-table__row",
-            ".tv-screener__content-row",
-            # More specific TradingView selectors
-            ".tv-screener__content-row",
-            ".tv-data-table__row",
-            "[data-symbol-full]",
-            ".tv-screener__content-row",
-            # Fallback for any table-like structure
-            "tr",
-            "div[class*='symbol']",
-            "div[class*='price']"
-        ]
-        
-        rows = []
-        used_selector = None
-        
-        # Try different selectors until we find data
-        for selector in selectors:
-            try:
-                elements = soup.select(selector)
-                
-                if elements and len(elements) > 0:
-                    used_selector = selector
-                    rows = elements
-                    logger.debug(f"✅ Selector encontrado: {selector} - {len(rows)} filas")
-                    break
-                    
-            except Exception as e:
-                logger.debug(f"⚠️ Error con selector {selector}: {e}")
-                continue
+        # Selectors específicos para la página de índices
+        if section_name == "indices":
+            # Selector principal para la tabla de índices
+            rows = soup.select("table tbody tr")
+            
+            if not rows:
+                # Selector alternativo para diferentes layouts
+                rows = soup.select("div[class*='row']")
+            
+            if not rows:
+                # Selector más genérico
+                rows = soup.select("tr")
+        else:
+            # Selectors para otras secciones
+            selectors = [
+                "table.tv-data-table > tbody > tr",
+                "table[class*='table'] > tbody > tr",
+                "div[class*='table'] table > tbody > tr",
+                "table > tbody > tr",
+                "div[class*='row']",
+                "div[class*='item']",
+                "tr[class*='row']",
+                "tbody > tr",
+                "table tr",
+                "[data-role='symbol']",
+                ".tv-data-table__row",
+                ".tv-screener__content-row",
+                "[data-symbol-full]",
+                "tr",
+                "div[class*='symbol']",
+                "div[class*='price']"
+            ]
+            
+            rows = []
+            for selector in selectors:
+                try:
+                    elements = soup.select(selector)
+                    if elements and len(elements) > 0:
+                        rows = elements
+                        logger.debug(f"✅ Selector encontrado: {selector} - {len(rows)} filas")
+                        break
+                except Exception as e:
+                    logger.debug(f"⚠️ Error con selector {selector}: {e}")
+                    continue
         
         if not rows:
             logger.warning(f"⚠️ No se encontraron filas de datos en {section_name}")
@@ -104,61 +94,21 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
         data = []
         processed_count = 0
         
-        # Process first 5 rows
-        for i, row in enumerate(rows[:5]):
+        # Procesar TODAS las filas para índices, máximo 50 para otras secciones
+        max_rows = len(rows) if section_name == "indices" else min(50, len(rows))
+        
+        for i, row in enumerate(rows[:max_rows]):
             try:
-                # Try different cell extraction strategies
-                cells = row.find_all("td")
+                # Extraer datos de la fila
+                row_data = extract_row_data(row, section_name)
                 
-                if len(cells) >= 3:
-                    # Standard table format
-                    nombre = cells[0].get_text(strip=True)
-                    precio = cells[1].get_text(strip=True)
-                    cambio = cells[2].get_text(strip=True) if len(cells) > 2 else "N/A"
-                    
-                elif len(cells) == 2:
-                    # Two-column format
-                    nombre = cells[0].get_text(strip=True)
-                    precio = cells[1].get_text(strip=True)
-                    cambio = "N/A"
-                    
-                else:
-                    # Try to extract from div elements
-                    divs = row.find_all("div")
-                    if len(divs) >= 2:
-                        nombre = divs[0].get_text(strip=True)
-                        precio = divs[1].get_text(strip=True)
-                        cambio = divs[2].get_text(strip=True) if len(divs) > 2 else "N/A"
-                    else:
-                        # Fallback: extract all text
-                        text = row.get_text(strip=True)
-                        parts = text.split()
-                        if len(parts) >= 2:
-                            nombre = parts[0]
-                            precio = parts[1]
-                            cambio = parts[2] if len(parts) > 2 else "N/A"
-                        else:
-                            continue
-                
-                # Validate and clean data
-                if nombre and precio and len(nombre) > 0:
-                    # Clean up the data
-                    nombre = nombre.replace('\n', ' ').replace('\t', ' ').strip()
-                    precio = precio.replace('\n', ' ').replace('\t', ' ').strip()
-                    cambio = cambio.replace('\n', ' ').replace('\t', ' ').strip()
-                    
-                    # Limit string lengths
-                    nombre = nombre[:50] if len(nombre) > 50 else nombre
-                    precio = precio[:20] if len(precio) > 20 else precio
-                    cambio = cambio[:20] if len(cambio) > 20 else cambio
-                    
-                    data.append({
-                        "nombre": nombre,
-                        "precio": precio,
-                        "cambio": cambio
-                    })
+                if row_data:
+                    data.append(row_data)
                     processed_count += 1
-                    logger.debug(f"📊 Datos extraídos: {nombre} - {precio} - {cambio}")
+                    
+                    # Log cada 10 elementos procesados
+                    if processed_count % 10 == 0:
+                        logger.debug(f"📊 Procesados {processed_count} elementos de {section_name}")
                     
             except Exception as e:
                 logger.debug(f"⚠️ Error procesando fila {i}: {e}")
@@ -176,6 +126,89 @@ def scrape_tradingview_section(session, url: str, section_name: str) -> List[Dic
     except Exception as e:
         logger.error(f"❌ Error inesperado en {section_name}: {e}")
         return []
+
+def extract_row_data(row, section_name: str) -> Dict[str, str]:
+    """
+    Extract data from a table row
+    """
+    try:
+        # Try different cell extraction strategies
+        cells = row.find_all("td")
+        
+        if len(cells) >= 3:
+            # Standard table format
+            nombre = cells[0].get_text(strip=True)
+            precio = cells[1].get_text(strip=True)
+            cambio = cells[2].get_text(strip=True) if len(cells) > 2 else "N/A"
+            maximo = cells[3].get_text(strip=True) if len(cells) > 3 else "N/A"
+            minimo = cells[4].get_text(strip=True) if len(cells) > 4 else "N/A"
+            calificacion = cells[5].get_text(strip=True) if len(cells) > 5 else "N/A"
+            
+        elif len(cells) == 2:
+            # Two-column format
+            nombre = cells[0].get_text(strip=True)
+            precio = cells[1].get_text(strip=True)
+            cambio = "N/A"
+            maximo = "N/A"
+            minimo = "N/A"
+            calificacion = "N/A"
+            
+        else:
+            # Try to extract from div elements
+            divs = row.find_all("div")
+            if len(divs) >= 2:
+                nombre = divs[0].get_text(strip=True)
+                precio = divs[1].get_text(strip=True)
+                cambio = divs[2].get_text(strip=True) if len(divs) > 2 else "N/A"
+                maximo = divs[3].get_text(strip=True) if len(divs) > 3 else "N/A"
+                minimo = divs[4].get_text(strip=True) if len(divs) > 4 else "N/A"
+                calificacion = divs[5].get_text(strip=True) if len(divs) > 5 else "N/A"
+            else:
+                # Fallback: extract all text
+                text = row.get_text(strip=True)
+                parts = text.split()
+                if len(parts) >= 2:
+                    nombre = parts[0]
+                    precio = parts[1]
+                    cambio = parts[2] if len(parts) > 2 else "N/A"
+                    maximo = parts[3] if len(parts) > 3 else "N/A"
+                    minimo = parts[4] if len(parts) > 4 else "N/A"
+                    calificacion = parts[5] if len(parts) > 5 else "N/A"
+                else:
+                    return None
+        
+        # Validate and clean data
+        if nombre and precio and len(nombre) > 0:
+            # Clean up the data
+            nombre = nombre.replace('\n', ' ').replace('\t', ' ').strip()
+            precio = precio.replace('\n', ' ').replace('\t', ' ').strip()
+            cambio = cambio.replace('\n', ' ').replace('\t', ' ').strip()
+            maximo = maximo.replace('\n', ' ').replace('\t', ' ').strip()
+            minimo = minimo.replace('\n', ' ').replace('\t', ' ').strip()
+            calificacion = calificacion.replace('\n', ' ').replace('\t', ' ').strip()
+            
+            # Limit string lengths
+            nombre = nombre[:50] if len(nombre) > 50 else nombre
+            precio = precio[:20] if len(precio) > 20 else precio
+            cambio = cambio[:20] if len(cambio) > 20 else cambio
+            maximo = maximo[:20] if len(maximo) > 20 else maximo
+            minimo = minimo[:20] if len(minimo) > 20 else minimo
+            calificacion = calificacion[:20] if len(calificacion) > 20 else calificacion
+            
+            return {
+                "nombre": nombre,
+                "precio": precio,
+                "cambio": cambio,
+                "maximo": maximo,
+                "minimo": minimo,
+                "calificacion": calificacion
+            }
+        
+        return None
+        
+    except Exception as e:
+        logger.debug(f"⚠️ Error extrayendo datos de fila: {e}")
+        return None
 
 def scrape_tradingview() -> Dict[str, List[Dict[str, str]]]:
     """

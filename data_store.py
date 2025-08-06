@@ -9,12 +9,30 @@ from logger import logger, log_data_update
 class DataStore:
     def __init__(self):
         self.data = {
-            "tradingview": {},
-            "finviz": {},
-            "yahoo": {},
+            "tradingview": {
+                "indices": [],
+                "acciones": [],
+                "cripto": [],
+                "forex": []
+            },
+            "finviz": {
+                "forex": [],
+                "acciones": [],
+                "indices": []
+            },
+            "yahoo": {
+                "forex": [],
+                "gainers": [],
+                "losers": [],
+                "most_active_stocks": [],
+                "most_active_etfs": [],
+                "undervalued_growth": [],
+                "materias_primas": [],
+                "indices": []
+            },
             "last_updated": None,
             "metadata": {
-                "version": "1.0",
+                "version": "1.1",
                 "created_at": datetime.now().isoformat()
             }
         }
