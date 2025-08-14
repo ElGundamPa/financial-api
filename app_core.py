@@ -1,19 +1,25 @@
+import asyncio
+import base64
 import json
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional
 
-import httpx
 from cachetools import TTLCache
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+import httpx
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+
+from scrapers.http_finviz import scrape_finviz
+from scrapers.http_tradingview import scrape_tradingview
+from scrapers.http_yahoo import scrape_yahoo
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +48,20 @@ class Settings:
         self.http_timeout = int(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
         self.cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "90"))
         self.max_body_kb = int(os.getenv("MAX_BODY_KB", "128"))
+
+        # Autenticación (configurable por entorno)
+        # Modo por defecto: "apikey" en vercel, "none" en local
+        default_auth_mode = "apikey" if runtime == "vercel" else "none"
+        self.auth_mode = os.getenv("AUTH_MODE", default_auth_mode).lower()
+        # API Keys permitidas, separadas por coma
+        raw_keys = os.getenv("API_KEYS", "")
+        self.api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+        # Credenciales Basic Auth (si se habilita modo "basic")
+        self.basic_user = os.getenv("BASIC_USER", "")
+        self.basic_password = os.getenv("BASIC_PASSWORD", "")
+        # Rutas excluidas de autenticación (por defecto permitir preflight y docs/health)
+        raw_excludes = os.getenv("AUTH_EXCLUDE_PATHS", "/health,/docs,/openapi.json")
+        self.auth_exclude_paths = [p.strip() for p in raw_excludes.split(",") if p.strip()]
 
         # Configuración específica para Vercel
         if runtime == "vercel":
@@ -81,6 +101,70 @@ def create_app(runtime: str = "local") -> FastAPI:
     # Configurar compresión
     if settings.enable_compression:
         app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+    # Middleware de Autenticación (API Key o Basic)
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next):
+        # Permitir preflight CORS sin auth
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        path = request.url.path
+        if path in settings.auth_exclude_paths:
+            return await call_next(request)
+
+        mode = settings.auth_mode
+        # Si la autenticación está deshabilitada
+        if mode in ("none", "disabled", "off"):
+            return await call_next(request)
+
+        # Verificar API Key
+        if mode == "apikey":
+            api_key_header = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+            # También soportar esquema Authorization: ApiKey <key>
+            auth_header = request.headers.get("authorization") or ""
+            token = None
+            if api_key_header:
+                token = api_key_header.strip()
+            elif auth_header.lower().startswith("apikey "):
+                token = auth_header.split(" ", 1)[1].strip()
+
+            if token and token in settings.api_keys:
+                return await call_next(request)
+
+            response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+            response.headers["WWW-Authenticate"] = "ApiKey"
+            return response
+
+        # Verificar Basic Auth
+        if mode == "basic":
+            auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+            if not auth_header or not auth_header.lower().startswith("basic "):
+                response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+                response.headers["WWW-Authenticate"] = "Basic realm=API"
+                return response
+
+            try:
+                b64 = auth_header.split(" ", 1)[1]
+                decoded = base64.b64decode(b64).decode("utf-8")
+                if ":" not in decoded:
+                    raise ValueError("invalid basic structure")
+                user, pwd = decoded.split(":", 1)
+            except Exception:
+                response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+                response.headers["WWW-Authenticate"] = "Basic realm=API"
+                return response
+
+            if user == settings.basic_user and pwd == settings.basic_password and user and pwd:
+                return await call_next(request)
+
+            response = JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+            response.headers["WWW-Authenticate"] = "Basic realm=API"
+            return response
+
+        # Modos no soportados
+        logger.warning(f"Modo de autenticación desconocido: {settings.auth_mode}. Permitiendo acceso.")
+        return await call_next(request)
 
     # Middleware para limitar tamaño de body
     @app.middleware("http")
@@ -354,10 +438,4 @@ def create_data_summary(data: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
-# Importar asyncio al final para evitar circular imports
-import asyncio
-
-# Importar scrapers HTTP
-from scrapers.http_finviz import scrape_finviz
-from scrapers.http_tradingview import scrape_tradingview
-from scrapers.http_yahoo import scrape_yahoo
+# (fin imports)
