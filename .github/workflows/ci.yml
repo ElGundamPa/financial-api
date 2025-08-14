@@ -181,6 +181,11 @@ jobs:
       run: |
         pip install flake8 black isort
     
+    - name: Auto-format imports with isort (Plan B)
+      run: |
+        echo "=== Running isort auto-fix ==="
+        isort .
+
     - name: Run linting
       run: |
         # Solo verificar archivos del proyecto, no dependencias
