@@ -26,3 +26,4 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 skip = ["venv", ".venv", "__pycache__", ".git"]
+known_first_party = ["scrapers", "api", "app_core"]
