@@ -28,7 +28,7 @@ USER_AGENTS: List[str] = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
 ]
 
 # URLs for scraping
@@ -36,13 +36,13 @@ TRADINGVIEW_URLS: Dict[str, str] = {
     "indices": "https://es.tradingview.com/markets/indices/quotes-all/",
     "acciones": "https://es.tradingview.com/markets/stocks-usa/market-movers-large-cap/",
     "cripto": "https://es.tradingview.com/markets/cryptocurrencies/",
-    "forex": "https://es.tradingview.com/markets/currencies/rates-all/"
+    "forex": "https://es.tradingview.com/markets/currencies/rates-all/",
 }
 
 FINVIZ_URLS: Dict[str, str] = {
     "forex": "https://finviz.com/forex.ashx",
     "acciones": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=cap_large",
-    "indices": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=idx_sp500"
+    "indices": "https://finviz.com/screener.ashx?v=111&s=ta_topgainers&f=idx_sp500",
 }
 
 YAHOO_URLS: Dict[str, str] = {
@@ -53,7 +53,7 @@ YAHOO_URLS: Dict[str, str] = {
     "most_active_etfs": "https://finance.yahoo.com/markets/etfs/most-active/",
     "undervalued_growth": "https://finance.yahoo.com/screener/predefined/undervalued_stocks",
     "materias_primas": "https://finance.yahoo.com/commodities",
-    "indices": "https://finance.yahoo.com/quote/%5EGSPC"
+    "indices": "https://finance.yahoo.com/quote/%5EGSPC",
 }
 
 # Logging Configuration
@@ -69,4 +69,4 @@ CORS_MAX_AGE = int(os.getenv("CORS_MAX_AGE", "3600"))  # Cache por 1 hora
 
 # Screenshots Configuration
 SCREENSHOTS_DIR = os.getenv("SCREENSHOTS_DIR", "screenshots")
-ENABLE_SCREENSHOTS = os.getenv("ENABLE_SCREENSHOTS", "true").lower() == "true" 
+ENABLE_SCREENSHOTS = os.getenv("ENABLE_SCREENSHOTS", "true").lower() == "true"

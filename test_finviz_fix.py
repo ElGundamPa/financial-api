@@ -3,14 +3,18 @@
 Test script para verificar que el scraper de Finviz funciona correctamente
 """
 
-import sys
 import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from scraper.finviz import scrape_finviz_section_sync
-import requests
 import random
-from config import USER_AGENTS, REQUEST_TIMEOUT
+
+import requests
+
+from config import REQUEST_TIMEOUT, USER_AGENTS
+from scraper.finviz import scrape_finviz_section_sync
+
 
 def test_finviz_scraper():
     """Test del scraper de Finviz"""

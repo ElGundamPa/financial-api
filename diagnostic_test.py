@@ -1,8 +1,11 @@
+import json
+import random
+
 import requests
 from bs4 import BeautifulSoup
-import json
-from config import FINVIZ_URLS, YAHOO_URLS, USER_AGENTS, REQUEST_TIMEOUT
-import random
+
+from config import FINVIZ_URLS, REQUEST_TIMEOUT, USER_AGENTS, YAHOO_URLS
+
 
 def test_url(url, name):
     """Test a URL and return basic info about the response"""
