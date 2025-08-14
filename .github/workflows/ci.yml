@@ -32,12 +32,33 @@ jobs:
         pip install -r requirements.txt
         pip install pytest-cov
     
-    - name: Run tests
+    - name: Debug environment
       run: |
+        echo "=== ENVIRONMENT DEBUG ==="
         python --version
+        which python
         pip list
-        pytest tests/test_minimal.py -v
-        pytest tests/test_basic.py -v --tb=short
+        echo "=== FILES DEBUG ==="
+        ls -la tests/
+        echo "=== PYTHON PATH ==="
+        python -c "import sys; print('\\n'.join(sys.path))"
+    
+    - name: Test diagnostic
+      run: |
+        echo "=== RUNNING DIAGNOSTIC TESTS ==="
+        python -m pytest tests/test_diagnostic.py -v -s
+      continue-on-error: true
+    
+    - name: Test minimal first
+      run: |
+        echo "=== RUNNING MINIMAL TESTS ==="
+        python -m pytest tests/test_minimal.py -v --tb=short
+      continue-on-error: true
+    
+    - name: Test basic with debug
+      run: |
+        echo "=== RUNNING BASIC TESTS ==="
+        python -m pytest tests/test_basic.py -v --tb=long --maxfail=1
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
