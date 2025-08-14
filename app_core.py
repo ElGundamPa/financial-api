@@ -7,17 +7,16 @@ import time
 from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-import httpx
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-# First-party (proyecto)
 from scrapers.http_finviz import scrape_finviz
 from scrapers.http_tradingview import scrape_tradingview
 from scrapers.http_yahoo import scrape_yahoo
