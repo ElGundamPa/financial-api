@@ -17,6 +17,11 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+# First-party (proyecto)
+from scrapers.http_finviz import scrape_finviz
+from scrapers.http_tradingview import scrape_tradingview
+from scrapers.http_yahoo import scrape_yahoo
+
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -434,7 +439,4 @@ def create_data_summary(data: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
-# Importar scrapers HTTP (imports locales)
-from scrapers.http_finviz import scrape_finviz
-from scrapers.http_tradingview import scrape_tradingview
-from scrapers.http_yahoo import scrape_yahoo
+# (fin imports)
