@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import logging
@@ -6,11 +7,11 @@ import time
 from typing import Any, Dict, List, Optional
 
 from cachetools import TTLCache
-import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+import httpx
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -433,10 +434,7 @@ def create_data_summary(data: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 
-# Importar asyncio al final para evitar circular imports
-import asyncio
-
-# Importar scrapers HTTP
+# Importar scrapers HTTP (imports locales)
 from scrapers.http_finviz import scrape_finviz
 from scrapers.http_tradingview import scrape_tradingview
 from scrapers.http_yahoo import scrape_yahoo
