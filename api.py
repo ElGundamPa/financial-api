@@ -1,20 +1,15 @@
-from fastapi import FastAPI, Request, HTTPException
+from typing import Any, Dict
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from typing import Dict, Any
-from data_store import update_data, get_data, get_data_summary
-from config import (
-    CORS_ORIGINS, 
-    CORS_ALLOW_CREDENTIALS, 
-    CORS_ALLOW_METHODS, 
-    CORS_ALLOW_HEADERS
-)
-from logger import logger, log_api_request
+
+from config import CORS_ALLOW_CREDENTIALS, CORS_ALLOW_HEADERS, CORS_ALLOW_METHODS, CORS_ORIGINS
+from data_store import get_data, get_data_summary, update_data
+from logger import log_api_request, logger
 
 app = FastAPI(
-    title="Financial Data Receiver API",
-    description="API para recibir datos de scraping desde el bot",
-    version="1.0.0"
+    title="Financial Data Receiver API", description="API para recibir datos de scraping desde el bot", version="1.0.0"
 )
 
 # Add CORS middleware
@@ -26,6 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -36,60 +32,60 @@ async def root():
         "endpoints": {
             "/update_data": "POST - Recibir datos de scraping",
             "/datos": "GET - Obtener datos almacenados",
-            "/datos/resume": "GET - Obtener resumen de datos"
-        }
+            "/datos/resume": "GET - Obtener resumen de datos",
+        },
     }
+
 
 @app.post("/update_data")
 async def receive_data(request: Request):
     """Receive scraped data from bot"""
     log_api_request("POST", "/update_data")
-    
+
     try:
         data = await request.json()
-        
+
         # Validate data structure
         if not isinstance(data, dict):
             raise HTTPException(status_code=400, detail="Datos deben ser un objeto JSON")
-        
+
         # Extract data with defaults
         tv_data = data.get("tradingview", {})
         fz_data = data.get("finviz", {})
         yh_data = data.get("yahoo", {})
-        
+
         # Validate that at least one source has data
         if not any([tv_data, fz_data, yh_data]):
             logger.warning("⚠️ Datos recibidos sin contenido válido")
             return JSONResponse(
-                content={"status": "warning", "message": "Datos recibidos sin contenido válido"},
-                status_code=200
+                content={"status": "warning", "message": "Datos recibidos sin contenido válido"}, status_code=200
             )
-        
+
         # Update data store
         update_data(tv_data, fz_data, yh_data)
-        
+
         # Log success
         sources_received = []
-        if tv_data: sources_received.append("TradingView")
-        if fz_data: sources_received.append("Finviz")
-        if yh_data: sources_received.append("Yahoo")
-        
+        if tv_data:
+            sources_received.append("TradingView")
+        if fz_data:
+            sources_received.append("Finviz")
+        if yh_data:
+            sources_received.append("Yahoo")
+
         logger.info(f"✅ Datos recibidos de: {', '.join(sources_received)}")
-        
+
         return JSONResponse(
-            content={
-                "status": "ok",
-                "message": "Datos actualizados correctamente",
-                "sources_received": sources_received
-            },
-            status_code=200
+            content={"status": "ok", "message": "Datos actualizados correctamente", "sources_received": sources_received},
+            status_code=200,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"❌ Error procesando datos recibidos: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
 
 @app.get("/datos")
 async def get_datos():
@@ -102,6 +98,7 @@ async def get_datos():
         logger.error(f"❌ Error obteniendo datos: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+
 @app.get("/datos/resume")
 async def get_datos_resume():
     """Get data resume"""
@@ -113,6 +110,7 @@ async def get_datos_resume():
         logger.error(f"❌ Error obteniendo resumen: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -122,7 +120,7 @@ async def health_check():
         return {
             "status": "healthy",
             "last_updated": summary.get("last_updated"),
-            "sources_available": len([s for s in summary.get("sources", {}).values() if s.get("has_data")])
+            "sources_available": len([s for s in summary.get("sources", {}).values() if s.get("has_data")]),
         }
     except Exception as e:
         logger.error(f"❌ Error en health check: {e}")

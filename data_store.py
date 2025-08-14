@@ -2,24 +2,17 @@ import json
 import os
 import shutil
 from datetime import datetime
-from typing import Dict, Any, Optional
-from config import DATA_FILE, BACKUP_FILE
-from logger import logger, log_data_update
+from typing import Any, Dict, Optional
+
+from config import BACKUP_FILE, DATA_FILE
+from logger import log_data_update, logger
+
 
 class DataStore:
     def __init__(self):
         self.data = {
-            "tradingview": {
-                "indices": [],
-                "acciones": [],
-                "cripto": [],
-                "forex": []
-            },
-            "finviz": {
-                "forex": [],
-                "acciones": [],
-                "indices": []
-            },
+            "tradingview": {"indices": [], "acciones": [], "cripto": [], "forex": []},
+            "finviz": {"forex": [], "acciones": [], "indices": []},
             "yahoo": {
                 "forex": [],
                 "gainers": [],
@@ -28,13 +21,10 @@ class DataStore:
                 "most_active_etfs": [],
                 "undervalued_growth": [],
                 "materias_primas": [],
-                "indices": []
+                "indices": [],
             },
             "last_updated": None,
-            "metadata": {
-                "version": "1.1",
-                "created_at": datetime.now().isoformat()
-            }
+            "metadata": {"version": "1.1", "created_at": datetime.now().isoformat()},
         }
         self.load_data()
 
@@ -42,7 +32,7 @@ class DataStore:
         """Load data from file if it exists"""
         try:
             if os.path.exists(DATA_FILE):
-                with open(DATA_FILE, 'r', encoding='utf-8') as f:
+                with open(DATA_FILE, "r", encoding="utf-8") as f:
                     loaded_data = json.load(f)
                     # Merge with default structure
                     for key in self.data.keys():
@@ -60,7 +50,7 @@ class DataStore:
         """Load data from backup file"""
         try:
             if os.path.exists(BACKUP_FILE):
-                with open(BACKUP_FILE, 'r', encoding='utf-8') as f:
+                with open(BACKUP_FILE, "r", encoding="utf-8") as f:
                     loaded_data = json.load(f)
                     for key in self.data.keys():
                         if key in loaded_data:
@@ -78,7 +68,7 @@ class DataStore:
                 logger.debug(f"📋 Backup creado: {BACKUP_FILE}")
 
             # Save new data
-            with open(DATA_FILE, 'w', encoding='utf-8') as f:
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.data, f, indent=2, ensure_ascii=False)
             logger.debug(f"💾 Datos guardados en {DATA_FILE}")
         except Exception as e:
@@ -103,12 +93,15 @@ class DataStore:
 
             # Log update
             sources = []
-            if tv: sources.append("TradingView")
-            if fz: sources.append("Finviz")
-            if yh: sources.append("Yahoo")
-            
+            if tv:
+                sources.append("TradingView")
+            if fz:
+                sources.append("Finviz")
+            if yh:
+                sources.append("Yahoo")
+
             log_data_update(sources)
-            
+
         except Exception as e:
             logger.error(f"❌ Error actualizando datos: {e}")
 
@@ -118,14 +111,10 @@ class DataStore:
             # Basic validation - check if they are dictionaries
             if not isinstance(tv, dict) or not isinstance(fz, dict) or not isinstance(yh, dict):
                 return False
-            
+
             # Check if at least one source has data
-            has_data = any([
-                len(tv) > 0,
-                len(fz) > 0,
-                len(yh) > 0
-            ])
-            
+            has_data = any([len(tv) > 0, len(fz) > 0, len(yh) > 0])
+
             return has_data
         except Exception:
             return False
@@ -136,19 +125,16 @@ class DataStore:
 
     def get_data_summary(self) -> Dict[str, Any]:
         """Get summary of current data"""
-        summary = {
-            "last_updated": self.data.get("last_updated"),
-            "sources": {}
-        }
-        
+        summary = {"last_updated": self.data.get("last_updated"), "sources": {}}
+
         for source in ["tradingview", "finviz", "yahoo"]:
             source_data = self.data.get(source, {})
             summary["sources"][source] = {
                 "has_data": len(source_data) > 0,
                 "sections": list(source_data.keys()) if source_data else [],
-                "total_items": sum(len(section) for section in source_data.values()) if source_data else 0
+                "total_items": sum(len(section) for section in source_data.values()) if source_data else 0,
             }
-        
+
         return summary
 
     def clear_data(self) -> None:
@@ -158,20 +144,24 @@ class DataStore:
             "finviz": {},
             "yahoo": {},
             "last_updated": None,
-            "metadata": self.data.get("metadata", {})
+            "metadata": self.data.get("metadata", {}),
         }
         self.save_data()
         logger.info("🗑️ Datos limpiados")
 
+
 # Global instance
 data_store = DataStore()
+
 
 # Convenience functions for backward compatibility
 def update_data(tv, fz, yh):
     data_store.update_data(tv, fz, yh)
 
+
 def get_data():
     return data_store.get_data()
+
 
 def get_data_summary():
     return data_store.get_data_summary()

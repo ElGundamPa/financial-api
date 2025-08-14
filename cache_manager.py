@@ -1,9 +1,12 @@
 import json
-import redis
 from datetime import datetime, timedelta
-from typing import Any, Optional, Dict
-from config import REDIS_URL, CACHE_TTL
+from typing import Any, Dict, Optional
+
+import redis
+
+from config import CACHE_TTL, REDIS_URL
 from logger import logger
+
 
 class CacheManager:
     def __init__(self):
@@ -73,6 +76,7 @@ class CacheManager:
         except Exception as e:
             logger.error(f"❌ Error clearing cache: {e}")
             return False
+
 
 # Global cache instance
 cache_manager = CacheManager()
