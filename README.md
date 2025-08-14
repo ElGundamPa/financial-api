@@ -1,26 +1,25 @@
-# Financial Data API v2.0
+# Financial Data API v2.1.0 - Serverless Ready
 
-Una API optimizada y simplificada para obtener datos financieros de múltiples fuentes (TradingView, Finviz, Yahoo Finance) con scraping asíncrono, cache inteligente y base de datos.
+Una API optimizada para obtener datos financieros de múltiples fuentes (Finviz, Yahoo Finance) con scraping HTTP-only, cache en memoria efímero y optimizada para despliegue serverless en Vercel.
 
 ## 🚀 Características
 
-- **Múltiples fuentes de datos**: TradingView, Finviz, Yahoo Finance
+- **Múltiples fuentes de datos**: Finviz, Yahoo Finance (HTTP-only)
 - **Scraping asíncrono**: Ejecución paralela para mejor rendimiento
-- **Cache inteligente**: Redis con fallback a memoria
-- **Base de datos SQLite**: Almacenamiento estructurado
+- **Cache en memoria**: TTL efímero optimizado para serverless
+- **Sin base de datos**: Todo viaja en request/response
 - **Rate limiting**: Protección contra spam
-- **Endpoints dinámicos**: Generación automática sin duplicación
-- **Tests automatizados**: Cobertura de funcionalidad crítica
-- **Docker support**: Despliegue simplificado
-- **Logging completo**: Sistema de logs detallado
+- **CORS configurado**: Seguridad para frontends
+- **Compresión GZip**: Optimización de transferencia
+- **Timeouts estrictos**: Robustez en entornos serverless
 - **API RESTful**: Endpoints organizados y documentados
+- **Vercel Ready**: Despliegue serverless optimizado
 
 ## 📋 Requisitos
 
-- Python 3.11+
-- Redis (opcional, con fallback a memoria)
-- Playwright (navegador automatizado)
+- Python 3.12+
 - Conexión a internet
+- Vercel CLI (para despliegue)
 
 ## 🛠️ Instalación
 
@@ -44,15 +43,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. **Instalar navegadores para Playwright**
-```bash
-playwright install chromium
-```
-
-5. **Configurar variables de entorno (opcional)**
+4. **Configurar variables de entorno (opcional)**
 ```bash
 # Copiar archivo de ejemplo
-cp .env.example .env
+cp env.example .env
 # Editar según necesidades
 ```
 
@@ -97,6 +91,72 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `GET /sources` - Información de fuentes disponibles
 - `POST /scrape` - Ejecutar scraping manualmente
 - `GET /health` - Verificar estado de la API
+
+## 🚀 Despliegue en Vercel
+
+### Opción 1: Despliegue Automático
+
+1. **Conectar repositorio en Vercel**
+   - Ve a [vercel.com](https://vercel.com)
+   - Conecta tu repositorio de GitHub
+   - Selecciona la rama `deploy/vercel`
+
+2. **Configurar variables de entorno**
+   ```bash
+   CORS_ORIGINS=https://tu-frontend.com
+   RATE_LIMIT_RPM=60
+   HTTP_TIMEOUT_SECONDS=12
+   CACHE_TTL_SECONDS=90
+   MAX_BODY_KB=128
+   ```
+
+3. **Desplegar**
+   - Vercel detectará automáticamente la configuración
+   - La API estará disponible en `https://tu-proyecto.vercel.app`
+
+### Opción 2: Despliegue Manual
+
+1. **Instalar Vercel CLI**
+   ```bash
+   npm i -g vercel
+   ```
+
+2. **Login en Vercel**
+   ```bash
+   vercel login
+   ```
+
+3. **Desplegar**
+   ```bash
+   vercel --prod
+   ```
+
+### Desarrollo Local
+
+```bash
+# Usar Makefile
+make dev
+
+# O directamente
+uvicorn api.index:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Variables de Entorno
+
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `CORS_ORIGINS` | Orígenes permitidos para CORS | `http://localhost:3000` |
+| `RATE_LIMIT_RPM` | Requests por minuto | `60` |
+| `HTTP_TIMEOUT_SECONDS` | Timeout para requests HTTP | `12` |
+| `CACHE_TTL_SECONDS` | TTL del cache en memoria | `90` |
+| `MAX_BODY_KB` | Tamaño máximo de body en KB | `128` |
+
+### Limitaciones Serverless
+
+- **Cache efímero**: Los datos se pierden entre invocaciones
+- **Sin TradingView**: Requiere navegador, deshabilitado en Vercel
+- **Timeouts**: Máximo 10 segundos por función
+- **Memoria**: Límite de 1024MB por función
 
 ### Opción 2: API Separada + Bot
 

@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -108,7 +108,7 @@ async def shutdown_event():
 
 @app.get("/")
 @limiter.limit("10/minute")
-async def root():
+async def root(request: Request):
     """Root endpoint with API information"""
     log_api_request("GET", "/")
     return {
@@ -157,7 +157,7 @@ async def root():
 
 @app.get("/datos")
 @limiter.limit("30/minute")
-async def get_datos():
+async def get_datos(request: Request):
     """Get all financial data"""
     log_api_request("GET", "/datos")
     try:
@@ -169,7 +169,7 @@ async def get_datos():
 
 @app.get("/datos/resume")
 @limiter.limit("60/minute")
-async def get_datos_resume():
+async def get_datos_resume(request: Request):
     """Get data resume"""
     log_api_request("GET", "/datos/resume")
     try:
@@ -181,7 +181,7 @@ async def get_datos_resume():
 
 @app.post("/scrape")
 @limiter.limit("5/minute")
-async def manual_scrape():
+async def manual_scrape(request: Request):
     """Manually trigger scraping"""
     log_api_request("POST", "/scrape")
     try:
@@ -194,7 +194,7 @@ async def manual_scrape():
 
 @app.get("/health")
 @limiter.limit("100/minute")
-async def health_check():
+async def health_check(request: Request):
     """Health check endpoint"""
     log_api_request("GET", "/health")
     try:
@@ -212,7 +212,7 @@ async def health_check():
 
 @app.get("/sources")
 @limiter.limit("30/minute")
-async def get_sources_info():
+async def get_sources_info(request: Request):
     """Get information about available sources"""
     log_api_request("GET", "/sources")
     try:
@@ -230,3 +230,7 @@ async def get_sources_info():
 
 # Include dynamic endpoints from endpoint generator
 app.include_router(endpoint_generator.router, prefix="")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

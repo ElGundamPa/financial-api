@@ -6,6 +6,78 @@ import time
 from typing import Dict, List, Any
 from config import USER_AGENTS, YAHOO_URLS, REQUEST_TIMEOUT
 from logger import logger, log_scraping_start, log_scraping_success, log_scraping_error
+from .base_scraper import BaseScraper
+
+class YahooScraper(BaseScraper):
+    def __init__(self):
+        super().__init__("Yahoo")
+
+    def get_urls(self) -> Dict[str, str]:
+        return YAHOO_URLS
+
+    def get_selectors(self) -> Dict[str, List[str]]:
+        return {
+            "gainers": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ],
+            "losers": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ],
+            "most_active_stocks": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ],
+            "most_active_etfs": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ],
+            "forex": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ],
+            "indices": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ],
+            "materias_primas": [
+                "table tbody tr",
+                "tr[class*='simpTblRow']",
+                "tbody tr",
+                "table tr"
+            ]
+        }
+
+    def parse_row(self, row, data_type: str) -> Dict[str, str]:
+        try:
+            cells = row.find_all('td')
+            if len(cells) < 4:
+                return {}
+            
+            return {
+                "symbol": cells[0].get_text(strip=True) if cells[0] else "",
+                "name": cells[1].get_text(strip=True) if len(cells) > 1 and cells[1] else "",
+                "price": cells[2].get_text(strip=True) if len(cells) > 2 and cells[2] else "",
+                "change": cells[3].get_text(strip=True) if len(cells) > 3 and cells[3] else "",
+                "change_percent": cells[4].get_text(strip=True) if len(cells) > 4 and cells[4] else "",
+                "volume": cells[5].get_text(strip=True) if len(cells) > 5 and cells[5] else ""
+            }
+        except Exception as e:
+            logger.error(f"Error parsing Yahoo row: {e}")
+            return {}
 
 async def scrape_yahoo_paginated_section(session: requests.Session, base_url: str, key: str, max_pages: int = 10) -> List[Dict[str, Any]]:
     """Scrape a paginated section from Yahoo Finance"""
