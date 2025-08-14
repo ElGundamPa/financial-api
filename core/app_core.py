@@ -17,9 +17,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from scrapers.http_finviz import scrape_finviz
-from scrapers.http_tradingview import scrape_tradingview
-from scrapers.http_yahoo import scrape_yahoo
+from ..scrapers.http_finviz import scrape_finviz
+from ..scrapers.http_tradingview import scrape_tradingview
+from ..scrapers.http_yahoo import scrape_yahoo
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)

@@ -2,10 +2,14 @@
   "functions": {
     "api/index.py": {
       "runtime": "python3.12"
+    },
+    "api/receiver.py": {
+      "runtime": "python3.12"
     }
   },
   "regions": ["gru1"],
   "routes": [
+    { "src": "/api/receiver(.*)", "dest": "/api/receiver.py" },
     { "src": "/(.*)", "dest": "/api/index.py" }
   ]
 }
