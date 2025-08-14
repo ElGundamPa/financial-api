@@ -79,6 +79,6 @@ Thumbs.db
 # Redis dump
 dump.rdb
 
-# Test files
-test_*.py
-*_test.py 
+# Test files (but keep tests/ directory)
+# test_*.py
+# *_test.py 
