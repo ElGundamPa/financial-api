@@ -8,6 +8,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import os
+import base64
+import jwt
+from jwt import InvalidTokenError
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -33,6 +37,87 @@ app.add_middleware(
 
 # Configurar rate limiting
 app.state.limiter = limiter
+# Middleware de autenticación (soporta AUTH_MODE=none|apikey|basic|jwt)
+AUTH_MODE = os.getenv("AUTH_MODE", "none").lower()
+API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()]
+JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY", "")
+JWT_ISSUER = os.getenv("JWT_ISSUER", "")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "")
+
+
+def decode_jwt(token: str):
+    if not JWT_PUBLIC_KEY:
+        raise HTTPException(status_code=500, detail="JWT_PUBLIC_KEY no configurado")
+    try:
+        return jwt.decode(
+            token,
+            JWT_PUBLIC_KEY,
+            algorithms=["RS256"],
+            issuer=JWT_ISSUER if JWT_ISSUER else None,
+            audience=JWT_AUDIENCE if JWT_AUDIENCE else None,
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_iss": bool(JWT_ISSUER),
+                "verify_aud": bool(JWT_AUDIENCE),
+            },
+        )
+    except InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Permitir preflight
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    path = request.url.path
+    if path in ("/health", "/docs", "/openapi.json"):
+        return await call_next(request)
+
+    mode = AUTH_MODE
+    if mode in ("none", "off", "disabled"):
+        return await call_next(request)
+
+    if mode == "apikey":
+        api_key = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+        auth_header = request.headers.get("authorization") or ""
+        token = api_key.strip() if api_key else (auth_header.split(" ", 1)[1].strip() if auth_header.lower().startswith("apikey ") else None)
+        if token and token in API_KEYS:
+            return await call_next(request)
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+    if mode == "basic":
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if not auth_header or not auth_header.lower().startswith("basic "):
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        try:
+            b64 = auth_header.split(" ", 1)[1]
+            decoded = base64.b64decode(b64).decode("utf-8")
+            user, pwd = decoded.split(":", 1)
+        except Exception:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        basic_user = os.getenv("BASIC_USER", "")
+        basic_pwd = os.getenv("BASIC_PASSWORD", "")
+        if user == basic_user and pwd == basic_pwd and user and pwd:
+            return await call_next(request)
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+    if mode == "jwt":
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if not auth_header or not auth_header.lower().startswith("bearer "):
+            return JSONResponse(status_code=401, content={"detail": "Missing Bearer token"})
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            _ = decode_jwt(token)
+            return await call_next(request)
+        except HTTPException as e:
+            return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+        except Exception:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
+    return await call_next(request)
 
 
 class DataPayload(BaseModel):
