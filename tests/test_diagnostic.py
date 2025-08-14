@@ -3,8 +3,8 @@
 Test de diagnóstico para identificar problemas de importación
 """
 
-import sys
 import os
+import sys
 
 
 def test_python_environment():
@@ -20,20 +20,23 @@ def test_basic_imports():
     """Verificar importaciones básicas"""
     try:
         import pytest
+
         print("✅ pytest imported successfully")
     except ImportError as e:
         print(f"❌ pytest import failed: {e}")
         raise
-    
+
     try:
         import asyncio
+
         print("✅ asyncio imported successfully")
     except ImportError as e:
         print(f"❌ asyncio import failed: {e}")
         raise
-    
+
     try:
         import json
+
         print("✅ json imported successfully")
     except ImportError as e:
         print(f"❌ json import failed: {e}")
@@ -44,21 +47,24 @@ def test_project_imports():
     """Verificar importaciones del proyecto"""
     try:
         import app_core_simple
+
         print("✅ app_core_simple imported successfully")
     except ImportError as e:
         print(f"❌ app_core_simple import failed: {e}")
         print(f"Current directory contents: {os.listdir('.')}")
         raise
-    
+
     try:
         from app_core_simple import Settings
+
         print("✅ Settings imported successfully")
     except ImportError as e:
         print(f"❌ Settings import failed: {e}")
         raise
-    
+
     try:
         from app_core_simple import create_app
+
         print("✅ create_app imported successfully")
     except ImportError as e:
         print(f"❌ create_app import failed: {e}")
@@ -69,6 +75,7 @@ def test_cachetools_import():
     """Verificar importación de cachetools"""
     try:
         from cachetools import TTLCache
+
         print("✅ TTLCache imported successfully")
     except ImportError as e:
         print(f"❌ TTLCache import failed: {e}")
@@ -77,4 +84,5 @@ def test_cachetools_import():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "-s"])
