@@ -5,16 +5,21 @@ import time
 from typing import Any, Dict, List, Optional
 
 import jwt
+from core.env import load_env
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from jwt import InvalidTokenError
 from pydantic import BaseModel, Field
 from slowapi import Limiter
+from core.settings import AppSettings
 from slowapi.util import get_remote_address
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
+
+# Cargar variables de entorno locales (no afecta producción Vercel)
+load_env()
 
 # Crear aplicación FastAPI específica para el receiver
 app = FastAPI(
@@ -25,28 +30,25 @@ app = FastAPI(
     redoc_url="/api/receiver/redoc",
 )
 
-# CORS deshabilitado por defecto. Para habilitar, exporta ENABLE_CORS=true y CORS_ORIGINS
-ENABLE_CORS = os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes")
-if ENABLE_CORS:
-    ORIGINS = [o for o in (os.getenv("CORS_ORIGINS", "").split(",")) if o]
-    if ORIGINS:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=ORIGINS,
-            allow_credentials=False,
-            allow_methods=["GET", "POST", "OPTIONS"],
-            allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization", "x-api-key"],
-            max_age=3600,
-        )
+settings = AppSettings()
+if settings.enable_cors and settings.cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization", "x-api-key"],
+        max_age=3600,
+    )
 
 # Configurar rate limiting
 app.state.limiter = limiter
 # Middleware de autenticación (soporta AUTH_MODE=none|apikey|basic|jwt)
-AUTH_MODE = os.getenv("AUTH_MODE", "none").lower()
-API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()]
-JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY", "")
-JWT_ISSUER = os.getenv("JWT_ISSUER", "")
-JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "")
+AUTH_MODE = settings.auth_mode
+API_KEYS = settings.api_keys
+JWT_PUBLIC_KEY = settings.jwt_public_key
+JWT_ISSUER = settings.jwt_issuer
+JWT_AUDIENCE = settings.jwt_audience
 
 
 def decode_jwt(token: str):
