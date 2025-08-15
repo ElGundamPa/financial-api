@@ -3,14 +3,6 @@ import threading
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-
-from cache_manager import cache_manager
 from config import (
     CORS_ALLOW_CREDENTIALS,
     CORS_ALLOW_HEADERS,
@@ -20,9 +12,17 @@ from config import (
     SCRAPING_INTERVAL_MINUTES,
 )
 from data_store import get_data, get_data_summary
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+from logger import log_api_request, logger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+
+from cache_manager import cache_manager
 from database import init_db
 from endpoint_generator import endpoint_generator
-from logger import log_api_request, logger
 from scraper_manager import scraper_manager
 
 # Rate limiting

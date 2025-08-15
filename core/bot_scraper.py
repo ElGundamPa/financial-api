@@ -4,9 +4,9 @@ import sys
 from typing import Any, Dict
 
 import requests
-
 from config import API_URL
 from logger import log_scraping_error, log_scraping_start, log_scraping_success, logger
+
 from scraper.finviz import scrape_finviz
 from scraper.tradingview import scrape_tradingview
 from scraper.yahoo import scrape_yahoo

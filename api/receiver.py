@@ -25,15 +25,19 @@ app = FastAPI(
     redoc_url="/api/receiver/redoc",
 )
 
-# Configurar CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # En producción, restringir a dominios específicos
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization"],
-    max_age=3600,
-)
+# CORS deshabilitado por defecto. Para habilitar, exporta ENABLE_CORS=true y CORS_ORIGINS
+ENABLE_CORS = os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes")
+if ENABLE_CORS:
+    ORIGINS = [o for o in (os.getenv("CORS_ORIGINS", "").split(",")) if o]
+    if ORIGINS:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=ORIGINS,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization", "x-api-key"],
+            max_age=3600,
+        )
 
 # Configurar rate limiting
 app.state.limiter = limiter

@@ -6,7 +6,6 @@ from typing import Any, Dict, List
 
 import requests
 from bs4 import BeautifulSoup
-
 from config import FINVIZ_URLS, REQUEST_TIMEOUT, USER_AGENTS
 from logger import log_scraping_error, log_scraping_start, log_scraping_success, logger
 

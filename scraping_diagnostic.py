@@ -11,7 +11,6 @@ from typing import Any, Dict, List
 
 import requests
 from bs4 import BeautifulSoup
-
 from config import FINVIZ_URLS, REQUEST_TIMEOUT, TRADINGVIEW_URLS, USER_AGENTS, YAHOO_URLS
 
 

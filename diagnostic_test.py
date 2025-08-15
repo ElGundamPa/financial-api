@@ -3,7 +3,6 @@ import random
 
 import requests
 from bs4 import BeautifulSoup
-
 from config import FINVIZ_URLS, REQUEST_TIMEOUT, USER_AGENTS, YAHOO_URLS
 
 

@@ -7,7 +7,6 @@ import random
 
 import requests
 from bs4 import BeautifulSoup
-
 from config import REQUEST_TIMEOUT, USER_AGENTS
 
 
