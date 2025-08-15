@@ -99,7 +99,9 @@ def create_app(runtime: str = "local", root_path: str = "") -> FastAPI:
         version="2.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
-        root_path=root_path,
+        # No forzar root_path en producción; Vercel hace el mapeo de /api/<file>.
+        # Si root_path viene definido explícitamente, FastAPI lo usará.
+        root_path=root_path or "",
     )
 
     # Configurar rate limiting
