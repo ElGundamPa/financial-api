@@ -5,21 +5,21 @@ import time
 from typing import Any, Dict, List, Optional
 
 import jwt
-from core.env import load_env
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from jwt import InvalidTokenError
 from pydantic import BaseModel, Field
 from slowapi import Limiter
-from core.settings import AppSettings
 from slowapi.util import get_remote_address
+
+from api.core.settings import AppSettings
+
+# Load settings
+settings = AppSettings.from_env(runtime="vercel")
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
-
-# Cargar variables de entorno locales (no afecta producción Vercel)
-load_env()
 
 # Crear aplicación FastAPI específica para el receiver
 app = FastAPI(
@@ -28,13 +28,14 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/api/receiver/docs",
     redoc_url="/api/receiver/redoc",
+    root_path="/api/receiver", # Added this line
 )
 
-settings = AppSettings()
-if settings.enable_cors and settings.cors_origins:
+# CORS deshabilitado por defecto. Para habilitar, exporta ENABLE_CORS=true y CORS_ORIGINS
+if settings.enable_cors and settings.cors_origins: # New: use settings
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=settings.cors_origins, # New: use settings
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization", "x-api-key"],
@@ -44,28 +45,28 @@ if settings.enable_cors and settings.cors_origins:
 # Configurar rate limiting
 app.state.limiter = limiter
 # Middleware de autenticación (soporta AUTH_MODE=none|apikey|basic|jwt)
-AUTH_MODE = settings.auth_mode
-API_KEYS = settings.api_keys
-JWT_PUBLIC_KEY = settings.jwt_public_key
-JWT_ISSUER = settings.jwt_issuer
-JWT_AUDIENCE = settings.jwt_audience
+# AUTH_MODE = os.getenv("AUTH_MODE", "none").lower() # Removed
+# API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()] # Removed
+# JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY", "") # Removed
+# JWT_ISSUER = os.getenv("JWT_ISSUER", "") # Removed
+# JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "") # Removed
 
 
 def decode_jwt(token: str):
-    if not JWT_PUBLIC_KEY:
+    if not settings.jwt_public_key: # New: use settings
         raise HTTPException(status_code=500, detail="JWT_PUBLIC_KEY no configurado")
     try:
         return jwt.decode(
             token,
-            JWT_PUBLIC_KEY,
+            settings.jwt_public_key, # New: use settings
             algorithms=["RS256"],
-            issuer=JWT_ISSUER if JWT_ISSUER else None,
-            audience=JWT_AUDIENCE if JWT_AUDIENCE else None,
+            issuer=settings.jwt_issuer if settings.jwt_issuer else None, # New: use settings
+            audience=settings.jwt_audience if settings.jwt_audience else None, # New: use settings
             options={
                 "verify_signature": True,
                 "verify_exp": True,
-                "verify_iss": bool(JWT_ISSUER),
-                "verify_aud": bool(JWT_AUDIENCE),
+                "verify_iss": bool(settings.jwt_issuer), # New: use settings
+                "verify_aud": bool(settings.jwt_audience), # New: use settings
             },
         )
     except InvalidTokenError as e:
@@ -79,10 +80,10 @@ async def auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     path = request.url.path
-    if path in ("/health", "/docs", "/openapi.json"):
+    if path in settings.auth_exclude_paths: # New: use settings
         return await call_next(request)
 
-    mode = AUTH_MODE
+    mode = settings.auth_mode # New: use settings
     if mode in ("none", "off", "disabled"):
         return await call_next(request)
 
@@ -94,7 +95,7 @@ async def auth_middleware(request: Request, call_next):
             if api_key
             else (auth_header.split(" ", 1)[1].strip() if auth_header.lower().startswith("apikey ") else None)
         )
-        if token and token in API_KEYS:
+        if token and token in settings.api_keys: # New: use settings
             return await call_next(request)
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
 
@@ -108,8 +109,8 @@ async def auth_middleware(request: Request, call_next):
             user, pwd = decoded.split(":", 1)
         except Exception:
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-        basic_user = os.getenv("BASIC_USER", "")
-        basic_pwd = os.getenv("BASIC_PASSWORD", "")
+        basic_user = settings.basic_user # New: use settings
+        basic_pwd = settings.basic_password # New: use settings
         if user == basic_user and pwd == basic_pwd and user and pwd:
             return await call_next(request)
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
