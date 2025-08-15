@@ -1,9 +1,9 @@
-# Core FastAPI dependencies
-fastapi==0.88.0
-uvicorn[standard]==0.20.0
+# Core FastAPI dependencies (compatibles con Python 3.11 en Vercel)
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
 
 # HTTP client for scraping
-httpx==0.23.3
+httpx==0.24.1
 
 # HTML parsing
 beautifulsoup4==4.12.2
@@ -15,7 +15,7 @@ slowapi==0.1.9
 cachetools==5.3.2
 
 # Data validation
-pydantic==1.9.2
+pydantic==1.10.12
 
 # Environment variables
 python-dotenv==1.0.0

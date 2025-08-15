@@ -2,8 +2,8 @@
   "version": 2,
   "regions": ["gru1"],
   "builds": [
-    { "src": "api/index.py", "use": "@vercel/python@3.1.10", "config": { "pythonVersion": "3.11" } },
-    { "src": "api/receiver.py", "use": "@vercel/python@3.1.10", "config": { "pythonVersion": "3.11" } }
+    { "src": "api/index.py", "use": "@vercel/python@3.1.10", "config": { "runtime": "python3.11" } },
+    { "src": "api/receiver.py", "use": "@vercel/python@3.1.10", "config": { "runtime": "python3.11" } }
   ],
   "routes": [
     { "src": "/api/receiver(?:/.*)?", "dest": "api/receiver.py" },
