@@ -50,7 +50,9 @@ class Settings:
 
     def __init__(self, runtime: str = "local"):
         self.runtime = runtime
-        self.cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+        # CORS (deshabilitado por defecto). Para habilitar, establece ENABLE_CORS=true
+        self.enable_cors = (os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes"))
+        self.cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if self.enable_cors else []
         self.rate_limit_rpm = int(os.getenv("RATE_LIMIT_RPM", "60"))
         self.http_timeout = int(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
         self.cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "90"))
@@ -102,15 +104,16 @@ def create_app(runtime: str = "local") -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Configurar CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept", "User-Agent"],
-        max_age=3600,
-    )
+    # Configurar CORS (solo si está habilitado)
+    if settings.enable_cors and settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization", "x-api-key"],
+            max_age=3600,
+        )
 
     # Configurar compresión
     if settings.enable_compression:
