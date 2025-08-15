@@ -1,9 +1,9 @@
-# Core FastAPI dependencies - Updated for Python 3.12 compatibility
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# Core FastAPI dependencies - Compatible with Python 3.12
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
 
 # HTTP client for scraping
-httpx==0.25.2
+httpx==0.24.1
 
 # HTML parsing
 beautifulsoup4==4.12.2
@@ -14,9 +14,8 @@ slowapi==0.1.9
 # Cache (in-memory only for serverless)
 cachetools==5.3.2
 
-# Data validation - Updated for Python 3.12
-pydantic==2.5.0
-pydantic-core==2.14.5
+# Data validation - Compatible with Python 3.12
+pydantic==1.10.12
 
 # Environment variables
 python-dotenv==1.0.0
@@ -29,4 +28,4 @@ pytest-asyncio==0.21.1
 PyJWT==2.8.0
 
 # Additional dependencies for compatibility
-typing-extensions==4.8.0
+typing-extensions==4.5.0

@@ -16,7 +16,7 @@ from slowapi.util import get_remote_address
 from api.core.settings import AppSettings
 
 # Load settings
-settings = AppSettings.from_env(runtime="vercel")
+settings = AppSettings(runtime="vercel")
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)

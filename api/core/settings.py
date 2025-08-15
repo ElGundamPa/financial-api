@@ -1,13 +1,13 @@
 import os
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseSettings, Field, validator
 
 
-class AppSettings(BaseModel):
+class AppSettings(BaseSettings):
     """
     Configuración de la aplicación, cargada desde variables de entorno o .env.
-    Compatible con Pydantic v2.
+    Compatible con Pydantic v1.
     """
 
     runtime: str = Field("local", description="Entorno de ejecución (local, vercel)")
@@ -45,8 +45,7 @@ class AppSettings(BaseModel):
         description="Rutas excluidas de autenticación"
     )
 
-    @field_validator("api_keys", mode="before")
-    @classmethod
+    @validator("api_keys", pre=True)
     def _split_api_keys(cls, v):
         if v is None or v == "":
             return []
@@ -54,8 +53,7 @@ class AppSettings(BaseModel):
             return v
         return [s.strip() for s in str(v).split(",") if s.strip()]
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
+    @validator("cors_origins", pre=True)
     def _split_origins(cls, v):
         if v is None or v == "":
             return []
@@ -63,8 +61,7 @@ class AppSettings(BaseModel):
             return v
         return [s.strip() for s in str(v).split(",") if s.strip()]
 
-    @field_validator("auth_exclude_paths", mode="before")
-    @classmethod
+    @validator("auth_exclude_paths", pre=True)
     def _split_excludes(cls, v):
         if v is None or v == "":
             return ["/health", "/docs", "/openapi.json"]
@@ -72,52 +69,53 @@ class AppSettings(BaseModel):
             return v
         return [s.strip() for s in str(v).split(",") if s.strip()]
 
-    @classmethod
-    def from_env(cls, runtime: str = "local"):
-        """Cargar configuración desde variables de entorno"""
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
+
+    def __init__(self, runtime: str = "local", **values):
+        super().__init__(**values)
+        self.runtime = runtime
+
         # Cargar .env si existe (solo en local)
-        if runtime == "local":
+        if self.runtime == "local":
             try:
                 from dotenv import load_dotenv
                 load_dotenv()
             except ImportError:
                 pass
 
-        # Crear instancia con valores por defecto
-        settings = cls(runtime=runtime)
-
         # Override con variables de entorno
         if os.getenv("AUTH_MODE"):
-            settings.auth_mode = os.getenv("AUTH_MODE", "none").lower()
+            self.auth_mode = os.getenv("AUTH_MODE", "none").lower()
         if os.getenv("API_KEYS"):
-            settings.api_keys = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()]
+            self.api_keys = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()]
         if os.getenv("BASIC_USER"):
-            settings.basic_user = os.getenv("BASIC_USER", "")
+            self.basic_user = os.getenv("BASIC_USER", "")
         if os.getenv("BASIC_PASSWORD"):
-            settings.basic_password = os.getenv("BASIC_PASSWORD", "")
+            self.basic_password = os.getenv("BASIC_PASSWORD", "")
         if os.getenv("JWT_PUBLIC_KEY"):
-            settings.jwt_public_key = os.getenv("JWT_PUBLIC_KEY", "")
+            self.jwt_public_key = os.getenv("JWT_PUBLIC_KEY", "")
         if os.getenv("JWT_ISSUER"):
-            settings.jwt_issuer = os.getenv("JWT_ISSUER", "")
+            self.jwt_issuer = os.getenv("JWT_ISSUER", "")
         if os.getenv("JWT_AUDIENCE"):
-            settings.jwt_audience = os.getenv("JWT_AUDIENCE", "")
+            self.jwt_audience = os.getenv("JWT_AUDIENCE", "")
         if os.getenv("JWT_REQUIRED_SCOPE"):
-            settings.jwt_required_scope = os.getenv("JWT_REQUIRED_SCOPE", "")
+            self.jwt_required_scope = os.getenv("JWT_REQUIRED_SCOPE", "")
         if os.getenv("ENABLE_CORS"):
-            settings.enable_cors = os.getenv("ENABLE_CORS", "false").lower() == "true"
+            self.enable_cors = os.getenv("ENABLE_CORS", "false").lower() == "true"
         if os.getenv("CORS_ORIGINS"):
-            settings.cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+            self.cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
         if os.getenv("RATE_LIMIT_RPM"):
-            settings.rate_limit_rpm = int(os.getenv("RATE_LIMIT_RPM", "60"))
+            self.rate_limit_rpm = int(os.getenv("RATE_LIMIT_RPM", "60"))
         if os.getenv("HTTP_TIMEOUT_SECONDS"):
-            settings.http_timeout = int(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
+            self.http_timeout = int(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
         if os.getenv("CACHE_TTL_SECONDS"):
-            settings.cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "90"))
+            self.cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "90"))
         if os.getenv("MAX_BODY_KB"):
-            settings.max_body_kb = int(os.getenv("MAX_BODY_KB", "128"))
+            self.max_body_kb = int(os.getenv("MAX_BODY_KB", "128"))
         if os.getenv("LOG_LEVEL"):
-            settings.log_level = os.getenv("LOG_LEVEL", "INFO")
-
-        return settings
+            self.log_level = os.getenv("LOG_LEVEL", "INFO")
 
 
