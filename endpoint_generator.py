@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional
 
+from data_store import get_data
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+from logger import log_api_request
 
 from cache_manager import cache_manager
-from data_store import get_data
-from logger import log_api_request
 
 
 class EndpointGenerator:

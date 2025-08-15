@@ -2,9 +2,10 @@ import asyncio
 import concurrent.futures
 from typing import Any, Dict, List
 
-from cache_manager import cache_manager
 from data_store import update_data
 from logger import logger
+
+from cache_manager import cache_manager
 from scraper.finviz import FinvizScraper
 from scraper.tradingview import TradingViewScraper
 from scraper.yahoo import YahooScraper

@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 import requests
 from bs4 import BeautifulSoup
-
 from config import REQUEST_TIMEOUT, USER_AGENTS
 from logger import logger
 

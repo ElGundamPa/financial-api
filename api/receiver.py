@@ -26,7 +26,7 @@ app = FastAPI(
 )
 
 # CORS deshabilitado por defecto. Para habilitar, exporta ENABLE_CORS=true y CORS_ORIGINS
-ENABLE_CORS = (os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes"))
+ENABLE_CORS = os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes")
 if ENABLE_CORS:
     ORIGINS = [o for o in (os.getenv("CORS_ORIGINS", "").split(",")) if o]
     if ORIGINS:

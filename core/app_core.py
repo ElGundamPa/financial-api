@@ -51,7 +51,7 @@ class Settings:
     def __init__(self, runtime: str = "local"):
         self.runtime = runtime
         # CORS (deshabilitado por defecto). Para habilitar, establece ENABLE_CORS=true
-        self.enable_cors = (os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes"))
+        self.enable_cors = os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes")
         self.cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if self.enable_cors else []
         self.rate_limit_rpm = int(os.getenv("RATE_LIMIT_RPM", "60"))
         self.http_timeout = int(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))

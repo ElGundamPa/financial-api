@@ -1,11 +1,10 @@
 from typing import Any, Dict
 
+from config import CORS_ALLOW_CREDENTIALS, CORS_ALLOW_HEADERS, CORS_ALLOW_METHODS, CORS_ORIGINS
+from data_store import get_data, get_data_summary, update_data
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
-from config import CORS_ALLOW_CREDENTIALS, CORS_ALLOW_HEADERS, CORS_ALLOW_METHODS, CORS_ORIGINS
-from data_store import get_data, get_data_summary, update_data
 from logger import log_api_request, logger
 
 app = FastAPI(

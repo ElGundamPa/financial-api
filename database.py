@@ -2,11 +2,10 @@ import json
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from config import DATABASE_URL
 from sqlalchemy import JSON, Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
-from config import DATABASE_URL
 
 Base = declarative_base()
 

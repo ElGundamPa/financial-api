@@ -5,7 +5,6 @@ from typing import Any, Dict, List
 
 import requests
 from bs4 import BeautifulSoup
-
 from config import REQUEST_TIMEOUT, USER_AGENTS, YAHOO_URLS
 from logger import log_scraping_error, log_scraping_start, log_scraping_success, logger
 

@@ -11,8 +11,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import random
 
 import requests
-
 from config import REQUEST_TIMEOUT, USER_AGENTS
+
 from scraper.finviz import scrape_finviz_section_sync
 
 

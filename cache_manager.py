@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import redis
-
 from config import CACHE_TTL, REDIS_URL
 from logger import logger
 
