@@ -6,20 +6,22 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
+import httpx
+import jwt
 from cachetools import TTLCache
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-import httpx
+from jwt import InvalidTokenError
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from scrapers.http_finviz import scrape_finviz
-from scrapers.http_tradingview import scrape_tradingview
-from scrapers.http_yahoo import scrape_yahoo
+from ..scrapers.http_finviz import scrape_finviz
+from ..scrapers.http_tradingview import scrape_tradingview
+from ..scrapers.http_yahoo import scrape_yahoo
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -28,8 +30,13 @@ logger = logging.getLogger(__name__)
 # Cache global en memoria (efímero por instancia)
 cache = TTLCache(maxsize=128, ttl=90)  # 90 segundos TTL
 
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
+
+# Rate limiter (la clave se ajustará dinámicamente según el modo de auth)
+def _default_rate_key(request: Request) -> str:
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_default_rate_key)
 
 
 class ScrapeRequest(BaseModel):
@@ -51,6 +58,7 @@ class Settings:
 
         # Autenticación (configurable por entorno)
         # Modo por defecto: "apikey" en vercel, "none" en local
+        # Modos soportados: none | apikey | basic | jwt
         default_auth_mode = "apikey" if runtime == "vercel" else "none"
         self.auth_mode = os.getenv("AUTH_MODE", default_auth_mode).lower()
         # API Keys permitidas, separadas por coma
@@ -59,6 +67,12 @@ class Settings:
         # Credenciales Basic Auth (si se habilita modo "basic")
         self.basic_user = os.getenv("BASIC_USER", "")
         self.basic_password = os.getenv("BASIC_PASSWORD", "")
+        # JWT configuración (modo "jwt")
+        # Para serverless, se recomienda RS256 con clave pública inyectada por env
+        self.jwt_public_key = os.getenv("JWT_PUBLIC_KEY", "")
+        self.jwt_issuer = os.getenv("JWT_ISSUER", "")
+        self.jwt_audience = os.getenv("JWT_AUDIENCE", "")
+        self.jwt_required_scope = os.getenv("JWT_REQUIRED_SCOPE", "")
         # Rutas excluidas de autenticación (por defecto permitir preflight y docs/health)
         raw_excludes = os.getenv("AUTH_EXCLUDE_PATHS", "/health,/docs,/openapi.json")
         self.auth_exclude_paths = [p.strip() for p in raw_excludes.split(",") if p.strip()]
@@ -102,7 +116,30 @@ def create_app(runtime: str = "local") -> FastAPI:
     if settings.enable_compression:
         app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-    # Middleware de Autenticación (API Key o Basic)
+    # Helper: decodificar y validar JWT RS256
+    def _decode_jwt(token: str) -> Dict[str, Any]:
+        if not settings.jwt_public_key:
+            raise HTTPException(status_code=500, detail="JWT_PUBLIC_KEY no configurado")
+
+        try:
+            decoded = jwt.decode(
+                token,
+                settings.jwt_public_key,
+                algorithms=["RS256"],
+                issuer=settings.jwt_issuer if settings.jwt_issuer else None,
+                audience=settings.jwt_audience if settings.jwt_audience else None,
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_iss": bool(settings.jwt_issuer),
+                    "verify_aud": bool(settings.jwt_audience),
+                },
+            )
+            return decoded
+        except InvalidTokenError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+    # Middleware de Autenticación (API Key, Basic o JWT)
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next):
         # Permitir preflight CORS sin auth
@@ -162,6 +199,43 @@ def create_app(runtime: str = "local") -> FastAPI:
             response.headers["WWW-Authenticate"] = "Basic realm=API"
             return response
 
+        # Verificar JWT RS256
+        if mode == "jwt":
+            auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+            if not auth_header or not auth_header.lower().startswith("bearer "):
+                return JSONResponse(status_code=401, content={"detail": "Missing Bearer token"})
+
+            token = auth_header.split(" ", 1)[1].strip()
+            try:
+                claims = _decode_jwt(token)
+                # Validar scope si se requiere
+                if settings.jwt_required_scope:
+                    scopes = []
+                    # Common places: scope, scopes, permissions
+                    if isinstance(claims.get("scope"), str):
+                        scopes = claims.get("scope", "").split()
+                    elif isinstance(claims.get("scopes"), list):
+                        scopes = claims.get("scopes", [])
+                    elif isinstance(claims.get("permissions"), list):
+                        scopes = claims.get("permissions", [])
+
+                    if settings.jwt_required_scope not in scopes:
+                        return JSONResponse(status_code=403, content={"detail": "Insufficient scope"})
+
+                # Ajustar clave de rate-limit por sujeto del token si está presente
+                subject = claims.get("sub") or claims.get("client_id") or claims.get("uid")
+                if subject:
+                    request.state.rate_limit_key = f"jwt:{subject}"
+                else:
+                    request.state.rate_limit_key = f"jwt:anonymous"
+
+                # Continuar
+                return await call_next(request)
+            except HTTPException as e:
+                return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+            except Exception:
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+
         # Modos no soportados
         logger.warning(f"Modo de autenticación desconocido: {settings.auth_mode}. Permitiendo acceso.")
         return await call_next(request)
@@ -186,6 +260,15 @@ def create_app(runtime: str = "local") -> FastAPI:
             response.headers["Cache-Control"] = "public, max-age=60"
             response.headers["Vary"] = "Accept-Encoding"
         return response
+
+    # Reconfigurar función de key de rate-limit para usar el subject del JWT si está disponible
+    def _rate_key_func(request: Request) -> str:
+        key = getattr(request.state, "rate_limit_key", None)
+        if key:
+            return key
+        return get_remote_address(request)
+
+    app.state.limiter._key_func = _rate_key_func  # type: ignore[attr-defined]
 
     # Cliente HTTP global
     http_client = httpx.AsyncClient(
