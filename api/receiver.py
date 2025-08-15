@@ -1,93 +1,38 @@
-import base64
-import json
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Dict, Any
 
-import jwt
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from jwt import InvalidTokenError
-from pydantic import BaseModel, Field
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
-from api.core.settings import AppSettings
-
-# Load settings
-settings = AppSettings(runtime="vercel")
-
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
-
-# Crear aplicación FastAPI específica para el receiver
+# Crear aplicación FastAPI minimalista para receiver
 app = FastAPI(
     title="Financial Data Receiver API",
     description="API para recibir y procesar datos desde bots externos",
     version="1.0.0",
     docs_url="/api/receiver/docs",
     redoc_url="/api/receiver/redoc",
-    root_path="/api/receiver", # Added this line
+    root_path="/api/receiver",
 )
 
-# CORS deshabilitado por defecto. Para habilitar, exporta ENABLE_CORS=true y CORS_ORIGINS
-if settings.enable_cors and settings.cors_origins: # New: use settings
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins, # New: use settings
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept", "User-Agent", "Authorization", "x-api-key"],
-        max_age=3600,
-    )
+# Configuración básica
+AUTH_MODE = os.getenv("AUTH_MODE", "apikey").lower()
+API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "mF9zX2q7Lr4pK8yD1sBvWj").split(",") if k.strip()]
 
-# Configurar rate limiting
-app.state.limiter = limiter
-# Middleware de autenticación (soporta AUTH_MODE=none|apikey|basic|jwt)
-# AUTH_MODE = os.getenv("AUTH_MODE", "none").lower() # Removed
-# API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()] # Removed
-# JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY", "") # Removed
-# JWT_ISSUER = os.getenv("JWT_ISSUER", "") # Removed
-# JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "") # Removed
-
-
-def decode_jwt(token: str):
-    if not settings.jwt_public_key: # New: use settings
-        raise HTTPException(status_code=500, detail="JWT_PUBLIC_KEY no configurado")
-    try:
-        return jwt.decode(
-            token,
-            settings.jwt_public_key, # New: use settings
-            algorithms=["RS256"],
-            issuer=settings.jwt_issuer if settings.jwt_issuer else None, # New: use settings
-            audience=settings.jwt_audience if settings.jwt_audience else None, # New: use settings
-            options={
-                "verify_signature": True,
-                "verify_exp": True,
-                "verify_iss": bool(settings.jwt_issuer), # New: use settings
-                "verify_aud": bool(settings.jwt_audience), # New: use settings
-            },
-        )
-    except InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-
-
+# Middleware de autenticación simple
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    # Permitir preflight
     if request.method == "OPTIONS":
         return await call_next(request)
 
     path = request.url.path
-    if path in settings.auth_exclude_paths: # New: use settings
+    if path in ["/health", "/docs", "/openapi.json"]:
         return await call_next(request)
 
-    mode = settings.auth_mode # New: use settings
-    if mode in ("none", "off", "disabled"):
+    if AUTH_MODE == "none":
         return await call_next(request)
 
-    if mode == "apikey":
+    if AUTH_MODE == "apikey":
         api_key = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
         auth_header = request.headers.get("authorization") or ""
         token = (
@@ -95,195 +40,80 @@ async def auth_middleware(request: Request, call_next):
             if api_key
             else (auth_header.split(" ", 1)[1].strip() if auth_header.lower().startswith("apikey ") else None)
         )
-        if token and token in settings.api_keys: # New: use settings
+        if token and token in API_KEYS:
             return await call_next(request)
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-
-    if mode == "basic":
-        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
-        if not auth_header or not auth_header.lower().startswith("basic "):
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-        try:
-            b64 = auth_header.split(" ", 1)[1]
-            decoded = base64.b64decode(b64).decode("utf-8")
-            user, pwd = decoded.split(":", 1)
-        except Exception:
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-        basic_user = settings.basic_user # New: use settings
-        basic_pwd = settings.basic_password # New: use settings
-        if user == basic_user and pwd == basic_pwd and user and pwd:
-            return await call_next(request)
-        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-
-    if mode == "jwt":
-        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
-        if not auth_header or not auth_header.lower().startswith("bearer "):
-            return JSONResponse(status_code=401, content={"detail": "Missing Bearer token"})
-        token = auth_header.split(" ", 1)[1].strip()
-        try:
-            _ = decode_jwt(token)
-            return await call_next(request)
-        except HTTPException as e:
-            return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
-        except Exception:
-            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
 
     return await call_next(request)
 
-
-class DataPayload(BaseModel):
-    """Modelo para recibir datos del bot"""
-
-    source: str = Field(..., description="Fuente de los datos (ej: 'bot_telegram')")
-    data_type: str = Field(..., description="Tipo de datos (ej: 'market_update')")
-    payload: Dict[str, Any] = Field(..., description="Datos principales")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Metadatos adicionales")
-    timestamp: Optional[float] = Field(default=None, description="Timestamp del evento")
-
-
-class ProcessingResult(BaseModel):
-    """Resultado del procesamiento"""
-
-    success: bool
-    message: str
-    processed_at: float
-    data_id: Optional[str] = None
-
-
+# Endpoints básicos
 @app.get("/")
-@limiter.limit("60/minute")
-async def receiver_root(request: Request):
-    """Información del endpoint receiver"""
+async def root():
+    """Endpoint raíz del receiver"""
     return {
-        "service": "Financial Data Receiver",
+        "message": "Financial Data Receiver API",
         "version": "1.0.0",
-        "description": "Endpoint para recibir datos desde bots externos",
+        "runtime": "vercel",
+        "description": "API para recibir datos desde bots externos",
         "endpoints": {
-            "/": "Información del servicio",
-            "/health": "Health check",
+            "/health": "Verificar estado de la API",
             "/receive": "Recibir datos (POST)",
-            "/status": "Estado del procesamiento",
+            "/status": "Estado del receiver",
         },
-        "timestamp": time.time(),
+        "auth_mode": AUTH_MODE,
     }
-
 
 @app.get("/health")
-@limiter.limit("100/minute")
-async def receiver_health(request: Request):
-    """Health check del receiver"""
+async def health_check():
+    """Health check endpoint"""
     return {
         "ok": True,
+        "time": time.time(),
+        "version": "1.0.0",
+        "runtime": "vercel",
+        "auth_mode": AUTH_MODE,
         "service": "receiver",
-        "timestamp": time.time(),
-        "status": "operational",
     }
-
-
-@app.post("/receive")
-@limiter.limit("30/minute")
-async def receive_data(request: Request, data: DataPayload) -> ProcessingResult:
-    """
-    Recibir y procesar datos desde bots externos
-
-    Este endpoint puede ser usado por:
-    - Bots de Telegram
-    - Webhooks externos
-    - Sistemas de monitoreo
-    - Scripts automatizados
-    """
-    try:
-        # Asignar timestamp si no se proporciona
-        if data.timestamp is None:
-            data.timestamp = time.time()
-
-        # Validar datos básicos
-        if not data.source or not data.data_type:
-            raise HTTPException(status_code=400, detail="Los campos 'source' y 'data_type' son obligatorios")
-
-        # Procesar los datos (aquí puedes agregar lógica específica)
-        processed_data = await process_received_data(data)
-
-        # Generar ID único para el procesamiento
-        data_id = f"{data.source}_{data.data_type}_{int(data.timestamp)}"
-
-        return ProcessingResult(
-            success=True,
-            message=f"Datos recibidos y procesados correctamente desde {data.source}",
-            processed_at=time.time(),
-            data_id=data_id,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error procesando datos: {str(e)}")
-
 
 @app.get("/status")
-@limiter.limit("60/minute")
-async def get_processing_status(request: Request):
-    """Obtener estado del procesamiento de datos"""
+async def get_status():
+    """Obtener estado del receiver"""
     return {
         "status": "operational",
-        "last_processed": time.time(),
-        "total_processed": 0,  # En una implementación real, esto vendría de una base de datos
-        "sources_active": ["bot_telegram", "webhook_external"],
-        "timestamp": time.time(),
+        "uptime": time.time(),
+        "version": "1.0.0",
+        "runtime": "vercel",
+        "auth_mode": AUTH_MODE,
+        "last_data_received": None,
+        "total_requests": 0,
     }
 
+@app.post("/receive")
+async def receive_data(request: Request):
+    """Recibir datos desde bots externos"""
+    try:
+        # Intentar leer el body como JSON
+        body = await request.json()
+    except:
+        body = {"error": "Invalid JSON"}
 
-async def process_received_data(data: DataPayload) -> Dict[str, Any]:
-    """
-    Procesar los datos recibidos según el tipo y fuente
-
-    Aquí puedes implementar lógica específica para:
-    - Validar datos
-    - Transformar formato
-    - Almacenar temporalmente
-    - Enviar notificaciones
-    - Integrar con otros sistemas
-    """
-
-    # Ejemplo de procesamiento básico
-    processed = {
-        "source": data.source,
-        "data_type": data.data_type,
-        "received_at": time.time(),
-        "payload_size": len(str(data.payload)),
-        "has_metadata": data.metadata is not None,
-    }
-
-    # Lógica específica por tipo de datos
-    if data.data_type == "market_update":
-        # Procesar actualización de mercado
-        processed["market_data"] = True
-
-    elif data.data_type == "alert":
-        # Procesar alerta
-        processed["alert_processed"] = True
-
-    elif data.data_type == "status_update":
-        # Procesar actualización de estado
-        processed["status_updated"] = True
-
-    # En una implementación real, aquí podrías:
-    # - Guardar en base de datos
-    # - Enviar a cola de mensajes
-    # - Activar webhooks
-    # - Generar notificaciones
-
-    return processed
-
-
-# Endpoint adicional para debugging (solo en desarrollo)
-@app.post("/debug/echo")
-@limiter.limit("10/minute")
-async def debug_echo(request: Request, payload: Dict[str, Any]):
-    """Endpoint de debug que devuelve lo que recibe"""
     return {
-        "received": payload,
+        "status": "received",
+        "timestamp": time.time(),
+        "data_size": len(str(body)),
+        "message": "Datos recibidos correctamente",
+        "received_data": body,
+    }
+
+@app.get("/debug/echo")
+async def debug_echo(request: Request):
+    """Endpoint de debug para verificar la configuración"""
+    return {
+        "message": "Debug echo endpoint",
         "timestamp": time.time(),
         "headers": dict(request.headers),
         "method": request.method,
+        "url": str(request.url),
+        "auth_mode": AUTH_MODE,
+        "api_keys_configured": len(API_KEYS) > 0,
     }
