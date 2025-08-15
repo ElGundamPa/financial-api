@@ -89,7 +89,7 @@ class Settings:
             self.enable_compression = True
 
 
-def create_app(runtime: str = "local") -> FastAPI:
+def create_app(runtime: str = "local", root_path: str = "") -> FastAPI:
     """Factory para crear la aplicación FastAPI"""
     settings = Settings(runtime)
 
@@ -99,6 +99,7 @@ def create_app(runtime: str = "local") -> FastAPI:
         version="2.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+        root_path=root_path,
     )
 
     # Configurar rate limiting
