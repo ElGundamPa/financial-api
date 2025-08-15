@@ -1,4 +1,4 @@
-# Core FastAPI dependencies (compatibles con Python 3.11 en Vercel)
+# Core FastAPI dependencies (compatibles también con Python 3.12)
 fastapi==0.88.0
 uvicorn[standard]==0.20.0
 
@@ -14,8 +14,8 @@ slowapi==0.1.9
 # Cache (in-memory only for serverless)
 cachetools==5.3.2
 
-# Data validation
-pydantic==1.9.2
+# Data validation (1.10.x corrige compatibilidad con Python 3.12)
+pydantic==1.10.14
 
 # Environment variables
 python-dotenv==1.0.0
