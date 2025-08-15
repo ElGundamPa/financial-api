@@ -1,17 +1,17 @@
+import base64
 import json
+import os
 import time
 from typing import Any, Dict, List, Optional
 
+import jwt
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from jwt import InvalidTokenError
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import os
-import base64
-import jwt
-from jwt import InvalidTokenError
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -83,7 +83,11 @@ async def auth_middleware(request: Request, call_next):
     if mode == "apikey":
         api_key = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
         auth_header = request.headers.get("authorization") or ""
-        token = api_key.strip() if api_key else (auth_header.split(" ", 1)[1].strip() if auth_header.lower().startswith("apikey ") else None)
+        token = (
+            api_key.strip()
+            if api_key
+            else (auth_header.split(" ", 1)[1].strip() if auth_header.lower().startswith("apikey ") else None)
+        )
         if token and token in API_KEYS:
             return await call_next(request)
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
@@ -122,6 +126,7 @@ async def auth_middleware(request: Request, call_next):
 
 class DataPayload(BaseModel):
     """Modelo para recibir datos del bot"""
+
     source: str = Field(..., description="Fuente de los datos (ej: 'bot_telegram')")
     data_type: str = Field(..., description="Tipo de datos (ej: 'market_update')")
     payload: Dict[str, Any] = Field(..., description="Datos principales")
@@ -131,6 +136,7 @@ class DataPayload(BaseModel):
 
 class ProcessingResult(BaseModel):
     """Resultado del procesamiento"""
+
     success: bool
     message: str
     processed_at: float
@@ -172,7 +178,7 @@ async def receiver_health(request: Request):
 async def receive_data(request: Request, data: DataPayload) -> ProcessingResult:
     """
     Recibir y procesar datos desde bots externos
-    
+
     Este endpoint puede ser usado por:
     - Bots de Telegram
     - Webhooks externos
@@ -183,34 +189,28 @@ async def receive_data(request: Request, data: DataPayload) -> ProcessingResult:
         # Asignar timestamp si no se proporciona
         if data.timestamp is None:
             data.timestamp = time.time()
-        
+
         # Validar datos básicos
         if not data.source or not data.data_type:
-            raise HTTPException(
-                status_code=400, 
-                detail="Los campos 'source' y 'data_type' son obligatorios"
-            )
-        
+            raise HTTPException(status_code=400, detail="Los campos 'source' y 'data_type' son obligatorios")
+
         # Procesar los datos (aquí puedes agregar lógica específica)
         processed_data = await process_received_data(data)
-        
+
         # Generar ID único para el procesamiento
         data_id = f"{data.source}_{data.data_type}_{int(data.timestamp)}"
-        
+
         return ProcessingResult(
             success=True,
             message=f"Datos recibidos y procesados correctamente desde {data.source}",
             processed_at=time.time(),
-            data_id=data_id
+            data_id=data_id,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error procesando datos: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error procesando datos: {str(e)}")
 
 
 @app.get("/status")
@@ -229,7 +229,7 @@ async def get_processing_status(request: Request):
 async def process_received_data(data: DataPayload) -> Dict[str, Any]:
     """
     Procesar los datos recibidos según el tipo y fuente
-    
+
     Aquí puedes implementar lógica específica para:
     - Validar datos
     - Transformar formato
@@ -237,7 +237,7 @@ async def process_received_data(data: DataPayload) -> Dict[str, Any]:
     - Enviar notificaciones
     - Integrar con otros sistemas
     """
-    
+
     # Ejemplo de procesamiento básico
     processed = {
         "source": data.source,
@@ -246,26 +246,26 @@ async def process_received_data(data: DataPayload) -> Dict[str, Any]:
         "payload_size": len(str(data.payload)),
         "has_metadata": data.metadata is not None,
     }
-    
+
     # Lógica específica por tipo de datos
     if data.data_type == "market_update":
         # Procesar actualización de mercado
         processed["market_data"] = True
-        
+
     elif data.data_type == "alert":
         # Procesar alerta
         processed["alert_processed"] = True
-        
+
     elif data.data_type == "status_update":
         # Procesar actualización de estado
         processed["status_updated"] = True
-    
+
     # En una implementación real, aquí podrías:
     # - Guardar en base de datos
     # - Enviar a cola de mensajes
     # - Activar webhooks
     # - Generar notificaciones
-    
+
     return processed
 
 

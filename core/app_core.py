@@ -6,18 +6,18 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
+import httpx
+import jwt
 from cachetools import TTLCache
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-import httpx
+from jwt import InvalidTokenError
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-import jwt
-from jwt import InvalidTokenError
 
 from ..scrapers.http_finviz import scrape_finviz
 from ..scrapers.http_tradingview import scrape_tradingview
@@ -30,9 +30,11 @@ logger = logging.getLogger(__name__)
 # Cache global en memoria (efímero por instancia)
 cache = TTLCache(maxsize=128, ttl=90)  # 90 segundos TTL
 
+
 # Rate limiter (la clave se ajustará dinámicamente según el modo de auth)
 def _default_rate_key(request: Request) -> str:
     return get_remote_address(request)
+
 
 limiter = Limiter(key_func=_default_rate_key)
 
