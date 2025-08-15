@@ -9,16 +9,129 @@ import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import threading
+import os
+import base64
+import jwt
+from jwt import InvalidTokenError
 
 class FinancialAPIHandler(BaseHTTPRequestHandler):
     """Handler simplificado para simular la API financiera"""
     
+    def _unauthorized(self, scheme: str = "ApiKey", detail: str = "Unauthorized"):
+        payload = {"detail": detail}
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(401)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("WWW-Authenticate", scheme)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _read_auth_mode(self):
+        return (os.getenv("AUTH_MODE", "none") or "none").lower()
+
+    def _require_auth(self) -> bool:
+        """Devuelve True si la request está autenticada, False si no (y ya envió 401)."""
+        mode = self._read_auth_mode()
+
+        # Deshabilitado
+        if mode in ("none", "off", "disabled"):
+            return True
+
+        # API Key
+        if mode == "apikey":
+            api_keys = [k.strip() for k in (os.getenv("API_KEYS", "") or "").split(",") if k.strip()]
+            x_api_key = self.headers.get("x-api-key") or self.headers.get("X-API-Key")
+            auth = self.headers.get("authorization") or self.headers.get("Authorization") or ""
+            token = None
+            if x_api_key:
+                token = x_api_key.strip()
+            elif auth.lower().startswith("apikey "):
+                token = auth.split(" ", 1)[1].strip()
+            if token and token in api_keys:
+                return True
+            self._unauthorized("ApiKey", "API key requerida")
+            return False
+
+        # Basic
+        if mode == "basic":
+            auth = self.headers.get("authorization") or self.headers.get("Authorization")
+            if not auth or not auth.lower().startswith("basic "):
+                self._unauthorized("Basic realm=API", "Credenciales básicas requeridas")
+                return False
+            try:
+                b64 = auth.split(" ", 1)[1]
+                user_pwd = base64.b64decode(b64).decode("utf-8")
+                user, pwd = user_pwd.split(":", 1)
+            except Exception:
+                self._unauthorized("Basic realm=API", "Basic inválido")
+                return False
+            if user == os.getenv("BASIC_USER", "") and pwd == os.getenv("BASIC_PASSWORD", "") and user and pwd:
+                return True
+            self._unauthorized("Basic realm=API", "Credenciales inválidas")
+            return False
+
+        # JWT RS256
+        if mode == "jwt":
+            auth = self.headers.get("authorization") or self.headers.get("Authorization")
+            if not auth or not auth.lower().startswith("bearer "):
+                self._unauthorized("Bearer", "Token Bearer requerido")
+                return False
+            token = auth.split(" ", 1)[1].strip()
+            public_key = os.getenv("JWT_PUBLIC_KEY", "")
+            issuer = os.getenv("JWT_ISSUER", "")
+            audience = os.getenv("JWT_AUDIENCE", "")
+            required_scope = os.getenv("JWT_REQUIRED_SCOPE", "")
+            if not public_key:
+                # Config incorrecta
+                self._unauthorized("Bearer", "Configuración JWT incompleta")
+                return False
+            try:
+                claims = jwt.decode(
+                    token,
+                    public_key,
+                    algorithms=["RS256"],
+                    issuer=issuer or None,
+                    audience=audience or None,
+                    options={
+                        "verify_signature": True,
+                        "verify_exp": True,
+                        "verify_iss": bool(issuer),
+                        "verify_aud": bool(audience),
+                    },
+                )
+                if required_scope:
+                    scopes = []
+                    if isinstance(claims.get("scope"), str):
+                        scopes = claims.get("scope", "").split()
+                    elif isinstance(claims.get("scopes"), list):
+                        scopes = claims.get("scopes", [])
+                    elif isinstance(claims.get("permissions"), list):
+                        scopes = claims.get("permissions", [])
+                    if required_scope not in scopes:
+                        self.send_response(403)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"detail": "Insufficient scope"}).encode("utf-8"))
+                        return False
+                return True
+            except InvalidTokenError:
+                self._unauthorized("Bearer", "Token inválido")
+                return False
+
+        # Modo desconocido: denegar por seguridad
+        self._unauthorized("ApiKey", "Autenticación requerida")
+        return False
+
     def do_GET(self):
         """Manejar requests GET"""
         parsed_path = urllib.parse.urlparse(self.path)
         path = parsed_path.path
         query = urllib.parse.parse_qs(parsed_path.query)
         
+        # Proteger todos los endpoints (incluye /health)
+        if not self._require_auth():
+            return
+
         if path == '/':
             self.send_root_response()
         elif path == '/health':
@@ -37,6 +150,9 @@ class FinancialAPIHandler(BaseHTTPRequestHandler):
         parsed_path = urllib.parse.urlparse(self.path)
         path = parsed_path.path
         
+        if not self._require_auth():
+            return
+
         if path == '/scrape':
             self.send_scrape_response()
         else:
