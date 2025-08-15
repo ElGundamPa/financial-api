@@ -2,7 +2,6 @@ import asyncio
 import base64
 import json
 import logging
-import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +18,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from core.settings import AppSettings
 # Importes absolutos para evitar problemas de import en entornos serverless
 from scrapers.http_finviz import scrape_finviz
 from scrapers.http_tradingview import scrape_tradingview
@@ -46,52 +46,14 @@ class ScrapeRequest(BaseModel):
     force_refresh: bool = Field(default=False, description="Forzar refresh ignorando cache")
 
 
-class Settings:
-    """Configuración de la aplicación"""
-
-    def __init__(self, runtime: str = "local"):
-        self.runtime = runtime
-        # CORS (deshabilitado por defecto). Para habilitar, establece ENABLE_CORS=true
-        self.enable_cors = os.getenv("ENABLE_CORS", "false").lower() in ("1", "true", "yes")
-        self.cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if self.enable_cors else []
-        self.rate_limit_rpm = int(os.getenv("RATE_LIMIT_RPM", "60"))
-        self.http_timeout = int(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
-        self.cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "90"))
-        self.max_body_kb = int(os.getenv("MAX_BODY_KB", "128"))
-
-        # Autenticación (configurable por entorno)
-        # Modo por defecto: "apikey" en vercel, "none" en local
-        # Modos soportados: none | apikey | basic | jwt
-        default_auth_mode = "apikey" if runtime == "vercel" else "none"
-        self.auth_mode = os.getenv("AUTH_MODE", default_auth_mode).lower()
-        # API Keys permitidas, separadas por coma
-        raw_keys = os.getenv("API_KEYS", "")
-        self.api_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
-        # Credenciales Basic Auth (si se habilita modo "basic")
-        self.basic_user = os.getenv("BASIC_USER", "")
-        self.basic_password = os.getenv("BASIC_PASSWORD", "")
-        # JWT configuración (modo "jwt")
-        # Para serverless, se recomienda RS256 con clave pública inyectada por env
-        self.jwt_public_key = os.getenv("JWT_PUBLIC_KEY", "")
-        self.jwt_issuer = os.getenv("JWT_ISSUER", "")
-        self.jwt_audience = os.getenv("JWT_AUDIENCE", "")
-        self.jwt_required_scope = os.getenv("JWT_REQUIRED_SCOPE", "")
-        # Rutas excluidas de autenticación (por defecto permitir preflight y docs/health)
-        raw_excludes = os.getenv("AUTH_EXCLUDE_PATHS", "/health,/docs,/openapi.json")
-        self.auth_exclude_paths = [p.strip() for p in raw_excludes.split(",") if p.strip()]
-
-        # Configuración específica para Vercel
-        if runtime == "vercel":
-            self.disable_browser_sources = True
-            self.enable_compression = True
-        else:
-            self.disable_browser_sources = False
-            self.enable_compression = True
+class Settings(AppSettings):
+    """Compatibilidad: extiende AppSettings para mantener el mismo nombre en el resto del módulo"""
+    pass
 
 
 def create_app(runtime: str = "local", root_path: str = "") -> FastAPI:
     """Factory para crear la aplicación FastAPI"""
-    settings = Settings(runtime)
+    settings = Settings(runtime=runtime)
 
     app = FastAPI(
         title="Financial Data API",
